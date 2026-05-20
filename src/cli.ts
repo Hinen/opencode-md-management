@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import { fileURLToPath } from "node:url";
-import { runAudit } from "./commands/audit.js";
+import { runAuditReport } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
@@ -34,7 +34,12 @@ export function createProgram(): Command {
   program.command("audit")
     .description("Audit the canonical instruction markdown file")
     .action(async () => {
-      console.log(await runAudit(process.cwd()));
+      const report = await runAuditReport(process.cwd());
+
+      console.log(report.output);
+
+      if (report.hasErrors)
+        process.exitCode = 1;
     });
 
   program.command("sync")
