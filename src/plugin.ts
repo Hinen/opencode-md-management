@@ -79,7 +79,8 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_proposal_list: tool({
       description: "List stored AI instruction markdown proposals.",
       args: {
-        status: tool.schema.string().optional().describe("Filter by status: pending|approved|stale|rejected.")
+        status: tool.schema.string().optional().describe("Filter by status: pending|approved|stale|rejected."),
+        json: tool.schema.boolean().optional().describe("Return a JSON array instead of tab-delimited text.")
       },
       async execute(args, context) {
         return runProposalList(context.worktree, args);

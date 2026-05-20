@@ -39,8 +39,16 @@ describe("plugin tools", () => {
     const id = match[1];
 
     expect(await hooks.tool!.agent_md_proposal_list.execute({}, context)).toContain(id);
+
+    const json = JSON.parse(await hooks.tool!.agent_md_proposal_list.execute({ json: true }, context));
+
+    expect(json).toEqual([expect.objectContaining({ id, status: "pending", source: expect.objectContaining({ kind: "revise" }), canonicalPath: "AGENTS.md" })]);
     expect(await hooks.tool!.agent_md_proposal_reject.execute({ id, reason: "obsolete" }, context)).toBe(`Rejected proposal ${id}`);
     expect(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected" }, context)).toContain(`${id}\trejected`);
+
+    const rejectedJson = JSON.parse(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected", json: true }, context));
+
+    expect(rejectedJson).toEqual([expect.objectContaining({ id, status: "rejected" })]);
     expect(await hooks.tool!.agent_md_proposal_gc.execute({ olderThanDays: 0 }, context)).toContain("Deleted 1 proposals");
   });
 });
