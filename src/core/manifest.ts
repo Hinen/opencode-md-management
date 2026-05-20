@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { rename, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { z } from "zod";
 import type { AgentMdManifest } from "./types.js";
+import { assertParentChainInsideRoot, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 
 const manifestTargetSchema = z.object({
   path: z.string().min(1),
@@ -38,8 +39,11 @@ export async function readManifest(root: string): Promise<AgentMdManifest | unde
 }
 
 export async function writeManifest(root: string, manifest: AgentMdManifest): Promise<void> {
-  const path = join(root, manifestPath);
+  const path = resolveInsideRoot(root, manifestPath);
+  const tempPath = `${path}.tmp`;
 
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await assertParentChainInsideRoot(root, manifestPath);
+  await ensureParentDirectory(path);
+  await writeFile(tempPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await rename(tempPath, path);
 }

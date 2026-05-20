@@ -6,6 +6,7 @@ import { readManifest, writeManifest } from "./manifest.js";
 import { resolveCanonical } from "./canonical.js";
 import { atomicWrite } from "./writer.js";
 import type { AgentMdConfig, AgentMdManifest, CanonicalFile, ManifestTarget } from "./types.js";
+import { assertGitClean } from "../util/git.js";
 
 export type TargetStatus = "ok" | "missing" | "outdated" | "conflict";
 
@@ -62,6 +63,9 @@ export async function createSyncPlan(root: string, config: AgentMdConfig): Promi
 }
 
 export async function applySyncPlan(root: string, config: AgentMdConfig, plan: SyncPlan, options: { force?: boolean } = {}): Promise<AgentMdManifest> {
+  if (config.sync.requireGitClean)
+    await assertGitClean(root);
+
   for (const target of plan.targets) {
     if (target.status === "conflict" && !options.force)
       throw new Error(`Target has drift and requires --force: ${target.path}`);
@@ -69,12 +73,12 @@ export async function applySyncPlan(root: string, config: AgentMdConfig, plan: S
     if (target.status !== "ok")
       await atomicWrite(target.path, target.after, {
         root,
-        requireGitClean: config.sync.requireGitClean,
+        requireGitClean: false,
         backupDir: config.sync.backupDir
       });
   }
 
-  const manifest = createNextManifest(plan);
+  const manifest = mergeManifest(plan.manifest, plan.canonical, plan.targets);
 
   await writeManifest(root, manifest);
 
@@ -97,17 +101,23 @@ function getTargetStatus(before: string | undefined, currentHash: string | undef
   return "outdated";
 }
 
-function createNextManifest(plan: SyncPlan): AgentMdManifest {
+export function mergeManifest(previous: AgentMdManifest | undefined, canonical: CanonicalFile, appliedTargets: TargetSyncPlan[]): AgentMdManifest {
+  const targets = new Map<string, ManifestTarget>(previous?.targets.map((target) => [target.path, target]) ?? []);
+
+  for (const target of appliedTargets) {
+    targets.set(target.path, {
+      path: target.path,
+      mode: "mirror",
+      lastSyncedHash: canonical.hash
+    });
+  }
+
   return {
     version: 1,
     canonical: {
-      path: plan.canonical.path,
-      hash: plan.canonical.hash
+      path: canonical.path,
+      hash: canonical.hash
     },
-    targets: plan.targets.map((target) => ({
-      path: target.path,
-      mode: "mirror",
-      lastSyncedHash: plan.canonical.hash
-    }))
+    targets: [...targets.values()].sort((left, right) => left.path.localeCompare(right.path))
   };
 }
