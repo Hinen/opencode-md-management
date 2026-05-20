@@ -6,9 +6,10 @@ import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
-import { runProposalApprove, runProposalShow } from "./commands/proposal.js";
+import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
 import { runSync } from "./commands/sync.js";
+import { ProposalNotFoundError } from "./core/proposals.js";
 
 export function createProgram(): Command {
   const program = new Command();
@@ -67,6 +68,13 @@ export function createProgram(): Command {
       console.log(await runProposalShow(process.cwd(), id));
     });
 
+  program.command("proposal:list")
+    .description("List stored proposals")
+    .option("--status <status>", "filter by status (pending|approved|stale|rejected)")
+    .action(async (options: { status?: string }) => {
+      console.log(await runProposalList(process.cwd(), options));
+    });
+
   program.command("proposal:approve")
     .description("Approve a stored proposal and write the canonical file")
     .argument("<id>", "proposal id")
@@ -74,8 +82,49 @@ export function createProgram(): Command {
       console.log(await runProposalApprove(process.cwd(), id));
     });
 
+  program.command("proposal:reject")
+    .description("Reject a stored proposal")
+    .argument("<id>", "proposal id")
+    .option("--reason <text>", "human-readable rejection reason")
+    .action(async (id: string, options: { reason?: string }) => {
+      console.log(await runProposalReject(process.cwd(), id, options));
+    });
+
+  program.command("proposal:gc")
+    .description("Delete non-pending proposals older than a cutoff")
+    .option("--older-than-days <n>", "age cutoff in days", parseIntegerOption, 30)
+    .option("--status <list>", "comma-separated statuses (approved,stale,rejected)")
+    .action(async (options: { olderThanDays?: number; status?: string }) => {
+      console.log(await runProposalGc(process.cwd(), options));
+    });
+
   return program;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
-  createProgram().parse(process.argv);
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  createProgram()
+    .parseAsync(process.argv)
+    .catch((error: unknown) => {
+      if (error instanceof ProposalNotFoundError) {
+        console.error(`error: ${error.message}`);
+        process.exit(1);
+      }
+
+      if (error instanceof Error) {
+        console.error(`error: ${error.message}`);
+        process.exit(1);
+      }
+
+      console.error(`error: ${String(error)}`);
+      process.exit(1);
+    });
+}
+
+function parseIntegerOption(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+
+  if (Number.isNaN(parsed))
+    throw new Error(`Invalid number: ${value}`);
+
+  return parsed;
+}

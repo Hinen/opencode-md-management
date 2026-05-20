@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runInit } from "../src/commands/init.js";
-import { runProposalApprove, runProposalShow } from "../src/commands/proposal.js";
+import { runLearn } from "../src/commands/learn.js";
+import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "../src/commands/proposal.js";
 import { runRevise } from "../src/commands/revise.js";
 import { runSync } from "../src/commands/sync.js";
 
@@ -37,6 +38,37 @@ describe("CLI workflow handlers", () => {
     await runProposalApprove(root, id);
 
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Always run npm test");
+  });
+
+  it("lists, rejects, and garbage-collects proposals", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
+    await runInit(root);
+
+    const first = proposalId(await runRevise(root, { notes: "First change" }));
+    const second = proposalId(await runLearn(root, { notes: "Second change" }));
+    const list = await runProposalList(root);
+
+    expect(list).toContain(first);
+    expect(list).toContain(second);
+
+    expect(await runProposalReject(root, first, { reason: "obsolete" })).toBe(`Rejected proposal ${first}`);
+    expect(await runProposalList(root, { status: "rejected" })).toContain(`${first}\trejected`);
+
+    await runProposalApprove(root, second);
+
+    const gc = await runProposalGc(root, { olderThanDays: 0 });
+
+    expect(gc).toContain("Deleted 2 proposals");
+    expect(await runProposalList(root)).toBe("No proposals found");
+  });
+
+  it("throws friendly errors for unknown proposals and invalid status filters", async () => {
+    const root = await createTempRoot();
+
+    await expect(runProposalShow(root, "unknown-id")).rejects.toThrow(/Proposal not found: unknown-id/);
+    await expect(runProposalList(root, { status: "bogus" })).rejects.toThrow(/Invalid status filter: bogus/);
   });
 
   it("rejects unknown sync targets", async () => {

@@ -18,8 +18,22 @@ describe("createProgram", () => {
       "revise",
       "learn",
       "proposal:show",
-      "proposal:approve"
+      "proposal:list",
+      "proposal:approve",
+      "proposal:reject",
+      "proposal:gc"
     ]));
+  });
+
+  it("registers proposal lifecycle command options", () => {
+    const commands = createProgram().commands;
+    const list = commands.find((command) => command.name() === "proposal:list");
+    const reject = commands.find((command) => command.name() === "proposal:reject");
+    const gc = commands.find((command) => command.name() === "proposal:gc");
+
+    expect(list?.options.map((option) => option.long)).toContain("--status");
+    expect(reject?.options.map((option) => option.long)).toContain("--reason");
+    expect(gc?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--older-than-days", "--status"]));
   });
 
   it("registers OpenCode plugin tools", async () => {
@@ -33,7 +47,10 @@ describe("createProgram", () => {
       "agent_md_revise",
       "agent_md_learn",
       "agent_md_proposal_show",
-      "agent_md_proposal_approve"
+      "agent_md_proposal_list",
+      "agent_md_proposal_approve",
+      "agent_md_proposal_reject",
+      "agent_md_proposal_gc"
     ]));
   });
 });
