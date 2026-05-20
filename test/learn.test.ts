@@ -28,7 +28,7 @@ describe("runLearn", () => {
 
     await writeFile(notesFile, "Prefer small commits", "utf8");
 
-    const output = await runLearn(root, { notesFile });
+    const output = await runLearn(root, { notesFile: "notes.md" });
 
     expect(output).toContain("+Prefer small commits");
   });
@@ -37,5 +37,11 @@ describe("runLearn", () => {
     const root = await createConfiguredRoot();
 
     await expect(runLearn(root, {})).rejects.toThrow(/requires/);
+  });
+
+  it("rejects notes files outside the worktree", async () => {
+    const root = await createConfiguredRoot();
+
+    await expect(runLearn(root, { notesFile: join(root, "..", "notes.md") })).rejects.toThrow(/escapes/);
   });
 });
