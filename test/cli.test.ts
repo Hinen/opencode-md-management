@@ -31,7 +31,7 @@ describe("createProgram", () => {
     const reject = commands.find((command) => command.name() === "proposal:reject");
     const gc = commands.find((command) => command.name() === "proposal:gc");
 
-    expect(list?.options.map((option) => option.long)).toContain("--status");
+    expect(list?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--status", "--json"]));
     expect(reject?.options.map((option) => option.long)).toContain("--reason");
     expect(gc?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--older-than-days", "--status"]));
   });

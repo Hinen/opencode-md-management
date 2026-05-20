@@ -23,8 +23,20 @@ export async function runProposalApprove(root: string, id: string): Promise<stri
   return `Approved proposal ${proposal.id}`;
 }
 
-export async function runProposalList(root: string, options: { status?: string } = {}): Promise<string> {
+export async function runProposalList(root: string, options: { status?: string; json?: boolean } = {}): Promise<string> {
   const proposals = await listProposals(root, { status: parseStatusOption(options.status, proposalStatuses) });
+
+  if (options.json) {
+    const items = proposals.map((proposal) => ({
+      id: proposal.id,
+      status: proposal.status,
+      createdAt: proposal.createdAt,
+      source: proposal.source,
+      canonicalPath: proposal.canonicalPath
+    }));
+
+    return JSON.stringify(items, null, 2);
+  }
 
   if (proposals.length === 0)
     return "No proposals found";

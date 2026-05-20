@@ -76,7 +76,8 @@ export function createProgram(): Command {
   program.command("proposal:list")
     .description("List stored proposals")
     .option("--status <status>", "filter by status (pending|approved|stale|rejected)")
-    .action(async (options: { status?: string }) => {
+    .option("--json", "output JSON array")
+    .action(async (options: { status?: string; json?: boolean }) => {
       console.log(await runProposalList(process.cwd(), options));
     });
 

@@ -53,8 +53,21 @@ describe("CLI workflow handlers", () => {
     expect(list).toContain(first);
     expect(list).toContain(second);
 
+    const json = JSON.parse(await runProposalList(root, { json: true }));
+
+    expect(json).toEqual([
+      expect.objectContaining({ id: first, status: "pending", source: expect.objectContaining({ kind: "revise" }), canonicalPath: "AGENTS.md" }),
+      expect.objectContaining({ id: second, status: "pending", source: expect.objectContaining({ kind: "learn" }), canonicalPath: "AGENTS.md" })
+    ]);
+    expect(json[0]).toHaveProperty("createdAt");
+
     expect(await runProposalReject(root, first, { reason: "obsolete" })).toBe(`Rejected proposal ${first}`);
     expect(await runProposalList(root, { status: "rejected" })).toContain(`${first}\trejected`);
+
+    const rejectedJson = JSON.parse(await runProposalList(root, { status: "rejected", json: true }));
+
+    expect(rejectedJson).toHaveLength(1);
+    expect(rejectedJson[0]).toEqual(expect.objectContaining({ id: first, status: "rejected" }));
 
     await runProposalApprove(root, second);
 
@@ -62,6 +75,7 @@ describe("CLI workflow handlers", () => {
 
     expect(gc).toContain("Deleted 2 proposals");
     expect(await runProposalList(root)).toBe("No proposals found");
+    expect(await runProposalList(root, { json: true })).toBe("[]");
   });
 
   it("throws friendly errors for unknown proposals and invalid status filters", async () => {
