@@ -8,8 +8,8 @@ Manage AI instruction markdown files for OpenCode.
 
 - Plugin tools expose the same management surface inside OpenCode: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_revise`, `agent_md_learn`, `agent_md_proposal_list`, `agent_md_proposal_show`, `agent_md_proposal_approve`, `agent_md_proposal_reject`, and `agent_md_proposal_gc`.
 - `init` creates `.agent-md.json` without touching markdown files.
-- `doctor` reports canonical and target file status.
-- `audit` checks the canonical markdown for duplicate headings, vague instructions, long sections, and secret-like values.
+- `doctor` reports canonical, manifest, and target file status.
+- `audit` checks the canonical markdown for duplicate headings, vague instructions, long sections, and secret-like values. Secret-like findings make the CLI exit non-zero.
 - `sync` previews canonical-to-target changes by default and writes only with `--apply`.
 - `revise` and `learn` create canonical update proposals. They do not write markdown files directly.
 - Proposal lifecycle commands list, show, approve, reject, and garbage-collect stored proposals. `proposal:approve` writes only the canonical file when the proposal is not stale. Target files are updated separately with `sync --apply`.
@@ -111,7 +111,7 @@ Proposal inventory is fail-closed for valid proposal ids: non-JSON files and inv
 
 ## Plugin hook surface (current)
 
-`@opencode-ai/plugin@1.15.5` exposes the `tool` and `command.execute.before` surfaces used by this package. It does not expose a drift watcher (`file.watcher.updated`), a session-idle hook (`session.idle`), or a toast surface (`tui.toast.show`). Drift watcher, session mining, slash command UX, and TUI toasts remain non-goals for this release; `command.execute.before` can intercept commands but is not a toast output surface.
+`@opencode-ai/plugin@1.15.5` exposes the `tool` surface used by this package. This release does not ship a drift watcher, session mining, slash command UX, or TUI toast integration.
 
 ## Deferred
 
