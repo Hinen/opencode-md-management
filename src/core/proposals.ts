@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { z } from "zod";
 import { resolveCanonical } from "./canonical.js";
@@ -21,17 +21,48 @@ const proposalSchema = z.object({
   before: z.string(),
   after: z.string(),
   diff: z.string(),
-  status: z.enum(["pending", "approved", "stale"]),
+  status: z.enum(["pending", "approved", "stale", "rejected"]),
   approvedAt: z.string().optional(),
-  approvedHash: z.string().startsWith("sha256:").optional()
+  approvedHash: z.string().startsWith("sha256:").optional(),
+  rejectedAt: z.string().optional(),
+  rejectedReason: z.string().optional()
 });
 
 export type Proposal = z.infer<typeof proposalSchema>;
+
+export class ProposalNotFoundError extends Error {
+  readonly id: string;
+
+  constructor(id: string) {
+    super(`Proposal not found: ${id}`);
+    this.id = id;
+    this.name = "ProposalNotFoundError";
+  }
+}
 
 export type CreateProposalInput = {
   source: Proposal["source"];
   canonical: CanonicalFile;
   after: string;
+};
+
+export type ListProposalsOptions = {
+  status?: Proposal["status"] | Proposal["status"][];
+};
+
+export type RejectProposalOptions = {
+  reason?: string;
+};
+
+export type GcProposalsOptions = {
+  statuses?: Proposal["status"][];
+  olderThanDays?: number;
+  now?: Date;
+};
+
+export type GcProposalsResult = {
+  deleted: string[];
+  kept: number;
 };
 
 const proposalsDirectory = ".agent-md/proposals";
@@ -60,9 +91,59 @@ export async function createProposal(root: string, input: CreateProposalInput): 
 }
 
 export async function showProposal(root: string, id: string): Promise<Proposal> {
-  const raw = await readFile(proposalPath(root, id), "utf8");
+  try {
+    const raw = await readFile(proposalPath(root, id), "utf8");
 
-  return parseProposal(JSON.parse(raw));
+    return parseProposal(JSON.parse(raw));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      throw new ProposalNotFoundError(id);
+
+    throw error;
+  }
+}
+
+export async function listProposals(root: string, options: ListProposalsOptions = {}): Promise<Proposal[]> {
+  const directory = resolveInsideRoot(root, proposalsDirectory);
+  let entries: string[];
+
+  try {
+    entries = await readdir(directory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      return [];
+
+    throw error;
+  }
+
+  const wanted = normalizeStatusFilter(options.status);
+  const proposals: Proposal[] = [];
+
+  for (const entry of entries) {
+    if (!entry.endsWith(".json"))
+      continue;
+
+    const id = entry.slice(0, -".json".length);
+
+    if (!isValidProposalId(id))
+      continue;
+
+    const proposal = await showProposal(root, id);
+
+    if (wanted && !wanted.has(proposal.status))
+      continue;
+
+    proposals.push(proposal);
+  }
+
+  proposals.sort((a, b) => {
+    if (a.createdAt !== b.createdAt)
+      return a.createdAt < b.createdAt ? -1 : 1;
+
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+
+  return proposals;
 }
 
 export async function approveProposal(root: string, id: string, config: AgentMdConfig): Promise<Proposal> {
@@ -105,6 +186,53 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
   return approved;
 }
 
+export async function rejectProposal(root: string, id: string, options: RejectProposalOptions = {}): Promise<Proposal> {
+  const proposal = await showProposal(root, id);
+
+  if (proposal.status === "approved")
+    throw new Error(`Cannot reject an approved proposal: ${id}`);
+
+  if (proposal.status === "rejected")
+    return proposal;
+
+  const rejected = parseProposal({
+    ...proposal,
+    status: "rejected",
+    rejectedAt: new Date().toISOString(),
+    rejectedReason: options.reason
+  });
+
+  await writeProposal(root, rejected);
+
+  return rejected;
+}
+
+export async function gcProposals(root: string, options: GcProposalsOptions = {}): Promise<GcProposalsResult> {
+  const statuses = new Set<Proposal["status"]>(options.statuses ?? ["approved", "stale", "rejected"]);
+
+  if (statuses.has("pending"))
+    throw new Error("Refusing to gc pending proposals");
+
+  const now = options.now ?? new Date();
+  const olderThanDays = options.olderThanDays ?? 30;
+  const cutoff = new Date(now.getTime() - olderThanDays * 86_400_000);
+  const proposals = await listProposals(root);
+  const deleted: string[] = [];
+
+  for (const proposal of proposals) {
+    if (!statuses.has(proposal.status))
+      continue;
+
+    if (new Date(proposal.createdAt) > cutoff)
+      continue;
+
+    await unlink(proposalPath(root, proposal.id));
+    deleted.push(proposal.id);
+  }
+
+  return { deleted, kept: proposals.length - deleted.length };
+}
+
 export function renderProposalForReview(proposal: Proposal): string {
   return [
     `Proposal ${proposal.id} [${proposal.status}]`,
@@ -139,8 +267,19 @@ async function createProposalId(root: string): Promise<string> {
 }
 
 function proposalPath(root: string, id: string): string {
-  if (basename(id) !== id || !/^[a-zA-Z0-9-]+$/.test(id))
+  if (!isValidProposalId(id))
     throw new Error(`Invalid proposal id: ${id}`);
 
   return resolveInsideRoot(root, join(proposalsDirectory, `${id}.json`));
+}
+
+function normalizeStatusFilter(status: ListProposalsOptions["status"]): Set<Proposal["status"]> | undefined {
+  if (!status)
+    return undefined;
+
+  return new Set(Array.isArray(status) ? status : [status]);
+}
+
+function isValidProposalId(id: string): boolean {
+  return basename(id) === id && /^[a-zA-Z0-9-]+$/.test(id);
 }
