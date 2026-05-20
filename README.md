@@ -51,6 +51,7 @@ npx opencode-md-management revise --notes "Add migration troubleshooting rules"
 npx opencode-md-management learn --notes-file ./session-notes.md
 npx opencode-md-management proposal:list
 npx opencode-md-management proposal:list --status pending
+npx opencode-md-management proposal:list --json
 npx opencode-md-management proposal:show <id>
 npx opencode-md-management proposal:approve <id>
 npx opencode-md-management proposal:reject <id> --reason "obsolete"
@@ -61,13 +62,13 @@ npx opencode-md-management proposal:gc --older-than-days 30 --status approved,st
 
 | CLI | Plugin tool |
 |-----|-------------|
-| `proposal:list [--status pending\|approved\|stale\|rejected]` | `agent_md_proposal_list` |
+| `proposal:list [--status pending\|approved\|stale\|rejected] [--json]` | `agent_md_proposal_list` |
 | `proposal:show <id>` | `agent_md_proposal_show` |
 | `proposal:approve <id>` | `agent_md_proposal_approve` |
 | `proposal:reject <id> [--reason <text>]` | `agent_md_proposal_reject` |
 | `proposal:gc [--older-than-days <n>] [--status approved,stale,rejected]` | `agent_md_proposal_gc` |
 
-`proposal:list` prints one tab-delimited proposal per line: `id`, `status`, `createdAt`, `source.kind`, and `canonicalPath`. Missing proposal ids are reported as clean CLI errors with a non-zero exit code. `proposal:gc` refuses to delete `pending` proposals; by default it deletes `approved`, `stale`, and `rejected` proposals older than 30 days.
+`proposal:list` prints one tab-delimited proposal per line: `id`, `status`, `createdAt`, `source.kind`, and `canonicalPath`. `proposal:list --json` and plugin `json: true` emit a pretty-printed JSON array with `id`, `status`, `createdAt`, `source.kind`, optional `source.summary`, and `canonicalPath`; empty results are `[]`. Missing proposal ids are reported as clean CLI errors with a non-zero exit code. `proposal:gc` refuses to delete `pending` proposals; by default it deletes `approved`, `stale`, and `rejected` proposals older than 30 days.
 
 ## Configuration
 
