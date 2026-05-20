@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { fileURLToPath } from "node:url";
 import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
@@ -44,5 +45,5 @@ export function createProgram(): Command {
   return program;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`)
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
   createProgram().parse(process.argv);
