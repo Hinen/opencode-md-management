@@ -21,9 +21,6 @@ export type AgentMdConfig = {
     enabled: boolean;
     promptInjectionGuard: boolean;
   };
-  toast: {
-    onDrift: boolean;
-  };
 };
 
 export type ManifestTarget = {

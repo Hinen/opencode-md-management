@@ -11,6 +11,12 @@ describe("config and hash", () => {
     expect(config.audit.maxSectionLines).toBe(200);
   });
 
+  it("does not expose the removed toast block", () => {
+    const config = parseConfig({ toast: { onDrift: true } });
+
+    expect((config as { toast?: unknown }).toast).toBeUndefined();
+  });
+
   it("normalizes line endings before hashing", () => {
     expect(hashContent("a\nb\n")).toBe(hashContent("a\r\nb\r\n"));
   });

@@ -24,9 +24,6 @@ const configSchema = z.object({
   llm: z.object({
     enabled: z.boolean().default(true),
     promptInjectionGuard: z.boolean().default(true)
-  }).default({}),
-  toast: z.object({
-    onDrift: z.boolean().default(true)
   }).default({})
 });
 
