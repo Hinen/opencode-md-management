@@ -22,7 +22,14 @@ export async function runInit(root: string): Promise<string> {
   const config = parseConfig({ canonical, targets });
   const output = `${JSON.stringify(config, null, 2)}\n`;
 
-  await writeFile(join(root, configFileName), output, { flag: "wx" });
+  try {
+    await writeFile(join(root, configFileName), output, { flag: "wx" });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST")
+      throw new Error(`${configFileName} already exists`);
+
+    throw error;
+  }
 
   return `Created ${configFileName} with canonical ${canonical}`;
 }
