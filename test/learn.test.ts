@@ -39,6 +39,14 @@ describe("runLearn", () => {
     await expect(runLearn(root, {})).rejects.toThrow(/requires/);
   });
 
+  it("rejects ambiguous notes input", async () => {
+    const root = await createConfiguredRoot();
+
+    await writeFile(join(root, "notes.md"), "Prefer small commits", "utf8");
+
+    await expect(runLearn(root, { notes: "Inline", notesFile: "notes.md" })).rejects.toThrow(/either notes or notesFile/);
+  });
+
   it("rejects notes files outside the worktree", async () => {
     const root = await createConfiguredRoot();
 
