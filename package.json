@@ -1,0 +1,33 @@
+{
+  "name": "opencode-md-management",
+  "version": "0.1.0",
+  "description": "Manage AI instruction markdown files for OpenCode",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "opencode-md-management": "dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/plugin.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.15.5",
+    "commander": "^12.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.17",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
