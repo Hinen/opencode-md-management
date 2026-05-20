@@ -7,7 +7,11 @@ export async function isGitClean(root: string): Promise<boolean> {
   try {
     const { stdout } = await execFileAsync("git", ["status", "--porcelain"], { cwd: root });
 
-    return stdout.trim().length === 0;
+    return stdout
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .filter((line) => !line.slice(3).startsWith(".agent-md/"))
+      .length === 0;
   } catch {
     return true;
   }
