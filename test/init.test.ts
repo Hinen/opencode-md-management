@@ -9,6 +9,20 @@ async function createTempRoot(): Promise<string> {
 }
 
 describe("runInit", () => {
+  it("defaults to AGENTS.md when no canonical file exists", async () => {
+    const root = await createTempRoot();
+
+    expect(await runInit(root)).toBe("Created .agent-md.json with canonical AGENTS.md");
+  });
+
+  it("uses existing CLAUDE.md as canonical when AGENTS.md is absent", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "CLAUDE.md"), "# Rules\n", "utf8");
+
+    expect(await runInit(root)).toBe("Created .agent-md.json with canonical CLAUDE.md");
+  });
+
   it("throws a friendly error when config exists", async () => {
     const root = await createTempRoot();
 

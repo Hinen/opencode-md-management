@@ -15,7 +15,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 export async function runInit(root: string): Promise<string> {
-  const canonical = await exists(join(root, "AGENTS.md")) ? "AGENTS.md" : "CLAUDE.md";
+  const canonical = await getDefaultCanonical(root);
   const targets = knownTargets
     .filter((path) => path !== canonical)
     .map((path) => ({ path, mode: "mirror" as const, enabled: path === "CLAUDE.md" || path === "GEMINI.md" }));
@@ -32,4 +32,14 @@ export async function runInit(root: string): Promise<string> {
   }
 
   return `Created ${configFileName} with canonical ${canonical}`;
+}
+
+async function getDefaultCanonical(root: string): Promise<string> {
+  if (await exists(join(root, "AGENTS.md")))
+    return "AGENTS.md";
+
+  if (await exists(join(root, "CLAUDE.md")))
+    return "CLAUDE.md";
+
+  return "AGENTS.md";
 }
