@@ -6,7 +6,7 @@ export function resolveInsideRoot(root: string, path: string): string {
   const resolvedPath = resolve(resolvedRoot, path);
   const relativePath = relative(resolvedRoot, resolvedPath);
 
-  if (relativePath.startsWith("..") || relativePath === "" && resolvedPath !== resolvedRoot)
+  if (relativePath.startsWith("..") || isAbsolute(relativePath) || relativePath === "" && resolvedPath !== resolvedRoot)
     throw new Error(`Path escapes repository root: ${path}`);
 
   return resolvedPath;
