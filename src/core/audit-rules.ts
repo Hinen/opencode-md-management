@@ -21,20 +21,25 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
   const headings = new Map<string, number>();
   let currentSectionStart = 1;
 
+  const checkSectionLength = (lineNumber: number) => {
+    if (lineNumber - currentSectionStart <= options.maxSectionLines)
+      return;
+
+    findings.push({
+      rule: "section-length",
+      severity: "warning",
+      message: `Section exceeds ${options.maxSectionLines} lines`,
+      line: currentSectionStart
+    });
+  };
+
   for (let index = 0; index < lines.length; index += 1) {
     const lineNumber = index + 1;
     const line = lines[index];
     const heading = /^(#+)\s+(.+)$/.exec(line);
 
     if (heading) {
-      if (lineNumber - currentSectionStart > options.maxSectionLines) {
-        findings.push({
-          rule: "section-length",
-          severity: "warning",
-          message: `Section exceeds ${options.maxSectionLines} lines`,
-          line: currentSectionStart
-        });
-      }
+      checkSectionLength(lineNumber);
 
       currentSectionStart = lineNumber;
 
@@ -71,6 +76,8 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
       });
     }
   }
+
+  checkSectionLength(lines.length + 1);
 
   return findings;
 }

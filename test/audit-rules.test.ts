@@ -20,4 +20,13 @@ describe("auditMarkdown", () => {
 
     expect(findings[0]).toMatchObject({ rule: "secret-like-value", severity: "error", line: 1 });
   });
+
+  it("detects an overlong final section", () => {
+    const findings = auditMarkdown("# Rules\n1\n2\n3", {
+      maxSectionLines: 2,
+      forbidSecretsPatterns: true
+    });
+
+    expect(findings).toContainEqual(expect.objectContaining({ rule: "section-length", line: 1 }));
+  });
 });
