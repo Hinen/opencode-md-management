@@ -6,6 +6,7 @@ Manage AI instruction markdown files for OpenCode.
 
 ## What it does
 
+- Plugin tools expose the same management surface inside OpenCode: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, and `agent_md_sync`.
 - `init` creates `.agent-md.json` without touching markdown files.
 - `doctor` reports canonical and target file status.
 - `audit` checks the canonical markdown for duplicate headings, vague instructions, long sections, and secret-like values.
@@ -26,6 +27,16 @@ npm run build
 ```
 
 ## Usage
+
+Inside OpenCode, install the package as a plugin and call the exposed tools when managing instruction files.
+
+```json
+{
+  "plugin": ["opencode-md-management"]
+}
+```
+
+The same functionality is available as a standalone CLI:
 
 ```bash
 npx opencode-md-management init
