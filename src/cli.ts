@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
+import { runLearn } from "./commands/learn.js";
+import { runProposalApprove, runProposalShow } from "./commands/proposal.js";
+import { runRevise } from "./commands/revise.js";
 import { runSync } from "./commands/sync.js";
 
 export function createProgram(): Command {
@@ -40,6 +43,35 @@ export function createProgram(): Command {
     .option("--target <path>", "sync one target")
     .action(async (options: { apply?: boolean; force?: boolean; target?: string }) => {
       console.log(await runSync(process.cwd(), options));
+    });
+
+  program.command("revise")
+    .description("Create a canonical revision proposal from notes")
+    .requiredOption("--notes <text>", "notes for the revision proposal")
+    .action(async (options: { notes: string }) => {
+      console.log(await runRevise(process.cwd(), options));
+    });
+
+  program.command("learn")
+    .description("Create a canonical proposal from explicit learning notes")
+    .option("--notes <text>", "learning notes")
+    .option("--notes-file <path>", "file containing learning notes")
+    .action(async (options: { notes?: string; notesFile?: string }) => {
+      console.log(await runLearn(process.cwd(), options));
+    });
+
+  program.command("proposal:show")
+    .description("Show a stored proposal diff")
+    .argument("<id>", "proposal id")
+    .action(async (id: string) => {
+      console.log(await runProposalShow(process.cwd(), id));
+    });
+
+  program.command("proposal:approve")
+    .description("Approve a stored proposal and write the canonical file")
+    .argument("<id>", "proposal id")
+    .action(async (id: string) => {
+      console.log(await runProposalApprove(process.cwd(), id));
     });
 
   return program;

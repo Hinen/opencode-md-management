@@ -10,7 +10,16 @@ describe("createProgram", () => {
   it("registers management commands", () => {
     const commands = createProgram().commands.map((command) => command.name());
 
-    expect(commands).toEqual(expect.arrayContaining(["init", "doctor", "audit", "sync"]));
+    expect(commands).toEqual(expect.arrayContaining([
+      "init",
+      "doctor",
+      "audit",
+      "sync",
+      "revise",
+      "learn",
+      "proposal:show",
+      "proposal:approve"
+    ]));
   });
 
   it("registers OpenCode plugin tools", async () => {
@@ -20,7 +29,11 @@ describe("createProgram", () => {
       "agent_md_init",
       "agent_md_doctor",
       "agent_md_audit",
-      "agent_md_sync"
+      "agent_md_sync",
+      "agent_md_revise",
+      "agent_md_learn",
+      "agent_md_proposal_show",
+      "agent_md_proposal_approve"
     ]));
   });
 });
