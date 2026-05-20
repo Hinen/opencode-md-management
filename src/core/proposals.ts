@@ -6,7 +6,7 @@ import { hashContent } from "./hash.js";
 import { renderUnifiedDiff } from "./diff.js";
 import { writeCanonical } from "./writer.js";
 import type { AgentMdConfig, CanonicalFile } from "./types.js";
-import { ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
+import { assertParentChainInsideRoot, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 
 const proposalSchema = z.object({
   version: z.literal(1),
@@ -73,6 +73,13 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
 
   const canonical = await resolveCanonical(root, config);
 
+  if (proposal.canonicalPath !== canonical.path) {
+    const stale = parseProposal({ ...proposal, status: "stale" });
+
+    await writeProposal(root, stale);
+    throw new Error(`Proposal canonical path is stale: ${id}`);
+  }
+
   if (canonical.hash !== proposal.beforeHash) {
     const stale = parseProposal({ ...proposal, status: "stale" });
 
@@ -80,7 +87,7 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
     throw new Error(`Proposal is stale: ${id}`);
   }
 
-  await writeCanonical(proposal.canonicalPath, proposal.after, {
+  await writeCanonical(canonical.path, proposal.after, {
     root,
     requireGitClean: config.sync.requireGitClean,
     backupDir: config.sync.backupDir
@@ -110,10 +117,13 @@ export function renderProposalForReview(proposal: Proposal): string {
 
 async function writeProposal(root: string, proposal: Proposal): Promise<void> {
   const path = proposalPath(root, proposal.id);
+  const relativePath = join(proposalsDirectory, `${proposal.id}.json`);
+  const tempPath = `${path}.${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`;
 
+  await assertParentChainInsideRoot(root, relativePath);
   await ensureParentDirectory(path);
-  await writeFile(`${path}.tmp`, `${JSON.stringify(proposal, null, 2)}\n`, "utf8");
-  await rename(`${path}.tmp`, path);
+  await writeFile(tempPath, `${JSON.stringify(proposal, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+  await rename(tempPath, path);
 }
 
 async function createProposalId(root: string): Promise<string> {

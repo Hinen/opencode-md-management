@@ -40,10 +40,10 @@ export async function readManifest(root: string): Promise<AgentMdManifest | unde
 
 export async function writeManifest(root: string, manifest: AgentMdManifest): Promise<void> {
   const path = resolveInsideRoot(root, manifestPath);
-  const tempPath = `${path}.tmp`;
+  const tempPath = `${path}.${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`;
 
   await assertParentChainInsideRoot(root, manifestPath);
   await ensureParentDirectory(path);
-  await writeFile(tempPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await writeFile(tempPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
   await rename(tempPath, path);
 }

@@ -60,4 +60,21 @@ describe("proposals", () => {
     expect((await showProposal(root, proposal.id)).status).toBe("stale");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("manual");
   });
+
+  it("rejects proposals created for a different canonical path", async () => {
+    const root = await createTempRoot();
+    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "CLAUDE.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/canonical path/);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
+  });
 });

@@ -22,9 +22,9 @@ export async function atomicWrite(relativePath: string, content: string, options
   if (options.backupDir)
     await backupExistingFile(relativePath, options);
 
-  const tempPath = `${targetPath}.agent-md.tmp`;
+  const tempPath = `${targetPath}.${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.agent-md.tmp`;
 
-  await writeFile(tempPath, content, "utf8");
+  await writeFile(tempPath, content, { encoding: "utf8", flag: "wx" });
   await rename(tempPath, targetPath);
 }
 
