@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { AgentMdConfig } from "./types.js";
+import { assertManagedPath, assertUniqueManagedPaths } from "../util/fs.js";
 
 const targetSchema = z.object({
   path: z.string().min(1),
@@ -32,7 +33,17 @@ const configSchema = z.object({
 export const configFileName = ".agent-md.json";
 
 export function parseConfig(input: unknown): AgentMdConfig {
-  return configSchema.parse(input);
+  const config = configSchema.parse(input);
+
+  if (config.canonical)
+    assertManagedPath(config.canonical, { allowAgentMdInternal: false });
+
+  for (const target of config.targets)
+    assertManagedPath(target.path, { canonical: config.canonical ?? "AGENTS.md" });
+
+  assertUniqueManagedPaths(config.targets.map((target) => target.path));
+
+  return config;
 }
 
 export async function loadConfig(root: string): Promise<AgentMdConfig> {

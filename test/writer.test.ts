@@ -24,6 +24,12 @@ describe("writer", () => {
     expect(() => resolveInsideRoot(root, "../CLAUDE.md")).toThrow(/escapes/);
   });
 
+  it("refuses to write directories", async () => {
+    const root = await createTempRoot();
+
+    await expect(atomicWrite(".", "rules", { root, requireGitClean: false })).rejects.toThrow(/non-file|file path/);
+  });
+
   it("refuses to write through symlinks", async () => {
     const root = await createTempRoot();
     const outside = join(await createTempRoot(), "outside.md");

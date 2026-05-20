@@ -1,7 +1,7 @@
 import { copyFile, rename, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { assertGitClean } from "../util/git.js";
-import { assertWritableRegularPath, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
+import { assertParentChainInsideRoot, assertWritableRegularPath, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 
 export type WriteOptions = {
   root: string;
@@ -15,6 +15,7 @@ export async function atomicWrite(relativePath: string, content: string, options
   if (options.requireGitClean)
     await assertGitClean(options.root);
 
+  await assertParentChainInsideRoot(options.root, relativePath);
   await assertWritableRegularPath(targetPath);
   await ensureParentDirectory(targetPath);
 
@@ -25,6 +26,10 @@ export async function atomicWrite(relativePath: string, content: string, options
 
   await writeFile(tempPath, content, "utf8");
   await rename(tempPath, targetPath);
+}
+
+export async function writeCanonical(relativePath: string, content: string, options: WriteOptions): Promise<void> {
+  await atomicWrite(relativePath, content, options);
 }
 
 async function backupExistingFile(relativePath: string, options: WriteOptions): Promise<void> {
