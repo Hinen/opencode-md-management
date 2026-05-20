@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { Command } from "commander";
 import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
