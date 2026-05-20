@@ -10,7 +10,7 @@ export async function isGitClean(root: string): Promise<boolean> {
     return stdout
       .split("\n")
       .filter((line) => line.trim().length > 0)
-      .filter((line) => !line.slice(3).startsWith(".agent-md/"))
+      .filter((line) => !isAgentMdStatusLine(line))
       .length === 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -20,6 +20,13 @@ export async function isGitClean(root: string): Promise<boolean> {
 
     throw new Error(`Unable to verify git status: ${message}`);
   }
+}
+
+function isAgentMdStatusLine(line: string): boolean {
+  return line
+    .slice(3)
+    .split(" -> ")
+    .every((path) => path === ".agent-md" || path.startsWith(".agent-md/"));
 }
 
 export async function assertGitClean(root: string): Promise<void> {
