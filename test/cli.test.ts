@@ -5,4 +5,10 @@ describe("createProgram", () => {
   it("configures the CLI name", () => {
     expect(createProgram().name()).toBe("opencode-md-management");
   });
+
+  it("registers management commands", () => {
+    const commands = createProgram().commands.map((command) => command.name());
+
+    expect(commands).toEqual(expect.arrayContaining(["init", "doctor", "audit", "sync"]));
+  });
 });
