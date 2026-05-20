@@ -4,7 +4,8 @@ import { createSyncPlan } from "../core/sync.js";
 export async function runDoctor(root: string): Promise<string> {
   const config = await loadConfig(root);
   const plan = await createSyncPlan(root, config);
-  const lines = [`canonical: ${plan.canonical.path} [ok]`, "targets:"];
+  const manifestStatus = plan.manifest ? "present" : "missing";
+  const lines = [`canonical: ${plan.canonical.path} [ok]`, `manifest: ${manifestStatus}`, "targets:"];
 
   for (const target of plan.targets)
     lines.push(`  ${target.path} [${target.status}]`);
