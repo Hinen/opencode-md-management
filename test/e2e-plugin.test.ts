@@ -21,4 +21,26 @@ describe("plugin tools", () => {
     expect(output).toContain("Proposal");
     expect(output).toContain("+Prefer small diffs");
   });
+
+  it("executes proposal lifecycle tools through a fake OpenCode context", async () => {
+    const root = await createTempRoot();
+    const hooks = await OpencodeMdManagement({} as never);
+    const context = { worktree: root } as never;
+
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
+
+    const revise = await hooks.tool!.agent_md_revise.execute({ notes: "Prefer small diffs" }, context);
+    const match = revise.match(/Proposal ([a-zA-Z0-9-]+)/);
+
+    if (!match)
+      throw new Error(`Proposal id not found in output: ${revise}`);
+
+    const id = match[1];
+
+    expect(await hooks.tool!.agent_md_proposal_list.execute({}, context)).toContain(id);
+    expect(await hooks.tool!.agent_md_proposal_reject.execute({ id, reason: "obsolete" }, context)).toBe(`Rejected proposal ${id}`);
+    expect(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected" }, context)).toContain(`${id}\trejected`);
+    expect(await hooks.tool!.agent_md_proposal_gc.execute({ olderThanDays: 0 }, context)).toContain("Deleted 1 proposals");
+  });
 });
