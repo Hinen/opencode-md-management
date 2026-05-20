@@ -3,5 +3,6 @@ dist/
 coverage/
 .agent-md/
 work-notes/
+PROJECT.md
 *.tsbuildinfo
 *.tmp
