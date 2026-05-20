@@ -12,8 +12,13 @@ export async function isGitClean(root: string): Promise<boolean> {
       .filter((line) => line.trim().length > 0)
       .filter((line) => !line.slice(3).startsWith(".agent-md/"))
       .length === 0;
-  } catch {
-    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.includes("not a git repository"))
+      return true;
+
+    throw new Error(`Unable to verify git status: ${message}`);
   }
 }
 

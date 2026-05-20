@@ -66,10 +66,12 @@ export async function applySyncPlan(root: string, config: AgentMdConfig, plan: S
   if (config.sync.requireGitClean)
     await assertGitClean(root);
 
-  for (const target of plan.targets) {
-    if (target.status === "conflict" && !options.force)
-      throw new Error(`Target has drift and requires --force: ${target.path}`);
+  const conflict = plan.targets.find((target) => target.status === "conflict");
 
+  if (conflict && !options.force)
+    throw new Error(`Target has drift and requires --force: ${conflict.path}`);
+
+  for (const target of plan.targets) {
     if (target.status !== "ok")
       await atomicWrite(target.path, target.after, {
         root,

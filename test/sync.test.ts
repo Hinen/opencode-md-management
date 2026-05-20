@@ -83,4 +83,29 @@ describe("sync", () => {
     expect(plan.targets[0].status).toBe("conflict");
     await expect(applySyncPlan(root, config, plan)).rejects.toThrow(/--force/);
   });
+
+  it("checks all conflicts before writing any target", async () => {
+    const root = await createTempRoot();
+    const config = parseConfig({
+      targets: [{ path: "CLAUDE.md" }, { path: "GEMINI.md" }],
+      sync: { requireGitClean: false }
+    });
+
+    await writeFile(join(root, "AGENTS.md"), "new rules", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "old rules", "utf8");
+    await writeFile(join(root, "GEMINI.md"), "manual edit", "utf8");
+    await writeManifest(root, {
+      version: 1,
+      canonical: { path: "AGENTS.md", hash: hashContent("old rules") },
+      targets: [
+        { path: "CLAUDE.md", mode: "mirror", lastSyncedHash: hashContent("old rules") },
+        { path: "GEMINI.md", mode: "mirror", lastSyncedHash: hashContent("old rules") }
+      ]
+    });
+
+    const plan = await createSyncPlan(root, config);
+
+    await expect(applySyncPlan(root, config, plan)).rejects.toThrow(/GEMINI\.md/);
+    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("old rules");
+  });
 });
