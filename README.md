@@ -43,7 +43,7 @@ Inside OpenCode, install the package as a plugin and use the `/agent-md:*` slash
 The slash command surface is:
 
 ```text
-/agent-md:init
+/agent-md:init opencode|claude|gemini|codex|copilot
 /agent-md:doctor
 /agent-md:audit
 /agent-md:sync
@@ -60,7 +60,7 @@ The slash command surface is:
 The same functionality is also available as a standalone CLI:
 
 ```bash
-npx opencode-md-management init
+npx opencode-md-management init --model claude
 npx opencode-md-management doctor
 npx opencode-md-management audit
 npx opencode-md-management sync
@@ -91,6 +91,8 @@ npx opencode-md-management proposal:gc --older-than-days 30 --status approved,st
 ## Configuration
 
 `.agent-md.json`:
+
+`init` accepts a primary instruction model/tool: `opencode`, `claude`, `gemini`, `codex`, or `copilot`. This selects the canonical file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.codex/AGENTS.md`, or `.github/copilot-instructions.md`). If multiple existing instruction files have different content and no model is supplied, init refuses to guess and asks for an explicit model.
 
 ```json
 {
