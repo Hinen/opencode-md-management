@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -43,5 +43,20 @@ describe("runAuditReport", () => {
     expect(report.output).toContain("AGENTS.md quality: 100/100 (A)");
     expect(report.output).toContain("Commands/Workflows: 20/20");
     expect(report.output).toContain("No findings in AGENTS.md");
+  });
+
+  it("audits discovered scopes", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n- Run `npm test`.\n", "utf8");
+    await mkdir(join(root, "packages", "api"), { recursive: true });
+    await writeFile(join(root, "packages", "api", "CLAUDE.md"), "# API\n- Run `npm test -- api`.\n", "utf8");
+    await runInit(root);
+
+    const report = await runAuditReport(root, { scope: "all" });
+
+    expect(report.output).toContain("scope: project");
+    expect(report.output).toContain("scope: packages/api");
+    expect(report.output).toContain("CLAUDE.md quality:");
   });
 });
