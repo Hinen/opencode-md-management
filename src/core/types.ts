@@ -1,4 +1,14 @@
-export type TargetMode = "mirror" | "local";
+export type TargetMode = "mirror";
+
+export type ScopeKind = "project" | "local" | "global" | "nested";
+
+export type ScopeTool = "opencode" | "claude" | "codex" | "gemini" | "copilot" | null;
+
+export type AgentMdScopeIdentity = {
+  id: string;
+  kind: ScopeKind;
+  tool: ScopeTool;
+};
 
 export type AgentMdTarget = {
   path: string;
@@ -7,10 +17,11 @@ export type AgentMdTarget = {
 };
 
 export type AgentMdConfig = {
-  scope?: string;
+  schemaVersion: 2;
+  scope: AgentMdScopeIdentity;
+  primary: string;
   canonical?: string;
   targets: AgentMdTarget[];
-  scopes: AgentMdScope[];
   sync: {
     requireGitClean: boolean;
     backupDir: string;
@@ -25,13 +36,6 @@ export type AgentMdConfig = {
   };
 };
 
-export type AgentMdScope = {
-  id: string;
-  root: string;
-  config?: string;
-  canonical?: string;
-};
-
 export type ManifestTarget = {
   path: string;
   mode: TargetMode;
@@ -39,12 +43,21 @@ export type ManifestTarget = {
 };
 
 export type AgentMdManifest = {
-  version: 1;
-  canonical: {
+  version: 2;
+  scope: AgentMdScopeIdentity;
+  root: string;
+  configPath: string;
+  configHash: string;
+  primary: {
+    path: string;
+    hash: string;
+  };
+  canonical?: {
     path: string;
     hash: string;
   };
   targets: ManifestTarget[];
+  adoptedAt: string;
 };
 
 export type CanonicalFile = {

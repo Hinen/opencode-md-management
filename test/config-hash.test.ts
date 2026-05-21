@@ -11,6 +11,18 @@ describe("config and hash", () => {
     expect(config.audit.maxSectionLines).toBe(200);
   });
 
+  it("upgrades legacy canonical configs to v2 shape in memory", () => {
+    const config = parseConfig({ canonical: "CLAUDE.md", targets: [] });
+
+    expect(config.schemaVersion).toBe(2);
+    expect(config.primary).toBe("CLAUDE.md");
+    expect(config.scope).toEqual({ id: "project", kind: "project", tool: null });
+  });
+
+  it("rejects legacy local target mode", () => {
+    expect(() => parseConfig({ targets: [{ path: ".claude.local.md", mode: "local" }] })).toThrow();
+  });
+
   it("does not expose the removed toast block", () => {
     const config = parseConfig({ toast: { onDrift: true } });
 

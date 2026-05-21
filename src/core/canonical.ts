@@ -15,7 +15,7 @@ async function readIfExists(path: string): Promise<string | undefined> {
 }
 
 export async function resolveCanonical(root: string, config: AgentMdConfig): Promise<CanonicalFile> {
-  const candidates = config.canonical ? [config.canonical] : ["AGENTS.md", "CLAUDE.md"];
+  const candidates = config.primary ? [config.primary] : config.canonical ? [config.canonical] : ["AGENTS.md", "CLAUDE.md"];
 
   for (const candidate of candidates) {
     const content = await readIfExists(join(root, candidate));
