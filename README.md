@@ -128,6 +128,8 @@ Sync is canonical-to-target only. Existing target files that drift from the last
 
 Proposal inventory is fail-closed for valid proposal ids: non-JSON files and invalid-id filenames are ignored, but corrupt JSON or schema-invalid files with valid proposal ids raise an error instead of silently disappearing from lists.
 
+Slash command arguments are prompt input to the agent, not a security boundary. The command templates instruct the agent to treat arguments as untrusted data and to call only the named tool, but review write-capable command output before relying on it.
+
 ## Plugin hook surface
 
 `@opencode-ai/plugin@1.15.5` exposes the `config` hook used to register `/agent-md:*` commands in `config.command`, plus the `tool` surface used to execute the underlying operations. This release does not ship a drift watcher, session mining, or TUI toast integration.
