@@ -16,6 +16,7 @@ const proposalSchema = z.object({
     kind: z.enum(["revise", "learn"]),
     summary: z.string().optional()
   }),
+  scopeId: z.string().min(1).default("project"),
   canonicalPath: z.string().min(1),
   beforeHash: z.string().startsWith("sha256:"),
   before: z.string(),
@@ -77,6 +78,7 @@ export async function createProposal(root: string, input: CreateProposalInput): 
     id: await createProposalId(root),
     createdAt: new Date().toISOString(),
     source: input.source,
+    scopeId: "project",
     canonicalPath: input.canonical.path,
     beforeHash: input.canonical.hash,
     before: input.canonical.content,
@@ -156,6 +158,13 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
     throw new Error(`Cannot approve a ${proposal.status} proposal: ${id}`);
 
   const canonical = await resolveCanonical(root, config);
+
+  if (proposal.scopeId !== config.scope.id) {
+    const stale = parseProposal({ ...proposal, status: "stale" });
+
+    await writeProposal(root, stale);
+    throw new Error(`Proposal scope is stale: ${id}`);
+  }
 
   if (proposal.canonicalPath !== canonical.path) {
     const stale = parseProposal({ ...proposal, status: "stale" });
@@ -240,6 +249,7 @@ export function renderProposalForReview(proposal: Proposal): string {
   return [
     `Proposal ${proposal.id} [${proposal.status}]`,
     `kind: ${proposal.source.kind}`,
+    `scope: ${proposal.scopeId}`,
     `canonical: ${proposal.canonicalPath}`,
     `beforeHash: ${proposal.beforeHash}`,
     proposal.diff || "No changes proposed"

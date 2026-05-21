@@ -8,9 +8,16 @@ export type ReviseCommandOptions = {
   after?: string;
   provider?: LlmProvider;
   kind?: "revise" | "learn";
+  scope?: string;
 };
 
 export async function runRevise(root: string, options: ReviseCommandOptions): Promise<string> {
+  if (options.scope && options.scope !== "project") {
+    const command = options.kind ?? "revise";
+
+    throw new Error(`${command} is project-only in MVP; use --scope project or omit --scope.`);
+  }
+
   const config = await loadConfig(root);
 
   if (!config.llm.enabled)

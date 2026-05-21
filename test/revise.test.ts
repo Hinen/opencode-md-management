@@ -59,6 +59,18 @@ describe("runRevise", () => {
 
     await expect(runRevise(root, { notes: "Add rules", provider })).rejects.toThrow(/invalid/);
   });
+
+  it("rejects non-project scopes in MVP", async () => {
+    const root = await createConfiguredRoot();
+
+    await expect(runRevise(root, { notes: "Add rules", scope: "global:claude" })).rejects.toThrow(/project-only/);
+  });
+
+  it("uses the command kind in non-project scope errors", async () => {
+    const root = await createConfiguredRoot();
+
+    await expect(runRevise(root, { notes: "Add rules", scope: "global:claude", kind: "learn" })).rejects.toThrow(/learn is project-only/);
+  });
 });
 
 describe("assertSafeProposalOutput", () => {

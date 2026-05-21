@@ -8,6 +8,7 @@ export type LearnCommandOptions = {
   notesFile?: string;
   after?: string;
   provider?: LlmProvider;
+  scope?: string;
 };
 
 export async function runLearn(root: string, options: LearnCommandOptions): Promise<string> {
@@ -19,7 +20,7 @@ export async function runLearn(root: string, options: LearnCommandOptions): Prom
   if (notes.trim().length === 0)
     throw new Error("learn requires notes or notesFile");
 
-  return runRevise(root, { notes, after: options.after, provider: options.provider, kind: "learn" });
+  return runRevise(root, { notes, after: options.after, provider: options.provider, kind: "learn", scope: options.scope });
 }
 
 async function readNotesFile(root: string, path: string | undefined): Promise<string> {

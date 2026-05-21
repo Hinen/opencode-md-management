@@ -11,6 +11,7 @@ import {
   gcProposals,
   listProposals,
   rejectProposal,
+  renderProposalForReview,
   showProposal,
   type Proposal
 } from "../src/core/proposals.js";
@@ -117,6 +118,27 @@ describe("proposals", () => {
     });
 
     await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/canonical path/);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
+  });
+
+  it("renders proposal scope metadata and rejects scope mismatches", async () => {
+    const root = await createTempRoot();
+    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    expect(renderProposalForReview(proposal)).toContain("scope: project");
+
+    await overwriteProposal(root, { ...proposal, scopeId: "global:claude" });
+
+    await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/scope is stale/);
+    expect((await showProposal(root, proposal.id)).status).toBe("stale");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
   });
 
