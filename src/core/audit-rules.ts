@@ -7,6 +7,19 @@ export type AuditFinding = {
   line: number;
 };
 
+export type AuditQualityCriterion = {
+  name: string;
+  score: number;
+  maxScore: number;
+  message: string;
+};
+
+export type AuditQualityReport = {
+  score: number;
+  grade: "A" | "B" | "C" | "D" | "F";
+  criteria: AuditQualityCriterion[];
+};
+
 export type AuditOptions = {
   maxSectionLines: number;
   forbidSecretsPatterns: boolean;
@@ -80,4 +93,70 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
   checkSectionLength(lines.length + 1);
 
   return findings;
+}
+
+export function scoreMarkdownQuality(content: string, findings: AuditFinding[]): AuditQualityReport {
+  const lines = content.split("\n");
+  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
+  const criteria: AuditQualityCriterion[] = [
+    scoreCriterion(
+      "Commands/Workflows",
+      20,
+      /\b(npm|pnpm|yarn|bun|dotnet|cargo|go test|pytest|vitest|test|build|lint)\b/i.test(content),
+      "Documents concrete build/test/development commands."
+    ),
+    scoreCriterion(
+      "Architecture Clarity",
+      20,
+      /\b(src|test|package|module|entry|architecture|구조|모듈)\b/i.test(content),
+      "Explains project structure, modules, or entry points."
+    ),
+    scoreCriterion(
+      "Non-Obvious Patterns",
+      15,
+      /\b(gotcha|quirk|workaround|주의|예외|반드시|never|always)\b/i.test(content),
+      "Captures project-specific gotchas or required patterns."
+    ),
+    scoreCriterion(
+      "Conciseness",
+      15,
+      nonEmptyLines.length > 0 && nonEmptyLines.length <= 200 && findings.every((finding) => finding.rule !== "vague-instruction"),
+      "Keeps guidance concise and avoids vague wording."
+    ),
+    scoreCriterion(
+      "Currency",
+      15,
+      !findings.some((finding) => finding.rule === "duplicate-heading" || finding.rule === "section-length"),
+      "Avoids stale duplicate headings and oversized sections."
+    ),
+    scoreCriterion(
+      "Actionability",
+      15,
+      nonEmptyLines.some((line) => /^[-*]\s+\S/.test(line) || /`[^`]+`/.test(line)) && findings.every((finding) => finding.severity !== "error"),
+      "Provides concrete, copy-ready instructions without secret-like values."
+    )
+  ];
+  const score = criteria.reduce((sum, criterion) => sum + criterion.score, 0);
+
+  return { score, grade: gradeScore(score), criteria };
+}
+
+function scoreCriterion(name: string, maxScore: number, passed: boolean, message: string): AuditQualityCriterion {
+  return { name, score: passed ? maxScore : 0, maxScore, message };
+}
+
+function gradeScore(score: number): AuditQualityReport["grade"] {
+  if (score >= 90)
+    return "A";
+
+  if (score >= 80)
+    return "B";
+
+  if (score >= 70)
+    return "C";
+
+  if (score >= 60)
+    return "D";
+
+  return "F";
 }

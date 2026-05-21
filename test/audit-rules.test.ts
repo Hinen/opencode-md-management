@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditMarkdown } from "../src/core/audit-rules.js";
+import { auditMarkdown, scoreMarkdownQuality } from "../src/core/audit-rules.js";
 
 describe("auditMarkdown", () => {
   it("detects duplicate headings and vague instructions", () => {
@@ -28,5 +28,29 @@ describe("auditMarkdown", () => {
     });
 
     expect(findings).toContainEqual(expect.objectContaining({ rule: "section-length", line: 1 }));
+  });
+
+  it("scores markdown quality with Claude md management criteria", () => {
+    const content = [
+      "# Project Instructions",
+      "## Commands",
+      "- Run `npm test` before reporting completion.",
+      "## Architecture",
+      "- Source lives in `src/` and tests live in `test/`.",
+      "## Gotchas",
+      "- Always keep proposal approval separate from sync apply."
+    ].join("\n");
+    const findings = auditMarkdown(content, { maxSectionLines: 200, forbidSecretsPatterns: true });
+    const quality = scoreMarkdownQuality(content, findings);
+
+    expect(quality).toMatchObject({ score: 100, grade: "A" });
+    expect(quality.criteria.map((criterion) => criterion.name)).toEqual([
+      "Commands/Workflows",
+      "Architecture Clarity",
+      "Non-Obvious Patterns",
+      "Conciseness",
+      "Currency",
+      "Actionability"
+    ]);
   });
 });

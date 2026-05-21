@@ -19,6 +19,29 @@ describe("runAuditReport", () => {
     const report = await runAuditReport(root);
 
     expect(report.hasErrors).toBe(true);
+    expect(report.output).toContain("AGENTS.md quality:");
     expect(report.output).toContain("error secret-like-value");
+  });
+
+  it("reports quality scoring when there are no findings", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), [
+      "# Project Instructions",
+      "## Commands",
+      "- Run `npm test` before reporting completion.",
+      "## Architecture",
+      "- Source lives in `src/` and tests live in `test/`.",
+      "## Gotchas",
+      "- Always keep proposal approval separate from sync apply."
+    ].join("\n"), "utf8");
+    await runInit(root);
+
+    const report = await runAuditReport(root);
+
+    expect(report.hasErrors).toBe(false);
+    expect(report.output).toContain("AGENTS.md quality: 100/100 (A)");
+    expect(report.output).toContain("Commands/Workflows: 20/20");
+    expect(report.output).toContain("No findings in AGENTS.md");
   });
 });

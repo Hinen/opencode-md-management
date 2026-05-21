@@ -10,7 +10,7 @@ Manage AI instruction markdown files for OpenCode.
 - Plugin tools remain available as the execution surface behind those commands: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_revise`, `agent_md_learn`, `agent_md_proposal_list`, `agent_md_proposal_show`, `agent_md_proposal_approve`, `agent_md_proposal_reject`, and `agent_md_proposal_gc`.
 - `init` creates `.agent-md.json` without touching markdown files.
 - `doctor` reports canonical, manifest, and target file status.
-- `audit` checks the canonical markdown for duplicate headings, vague instructions, long sections, and secret-like values. Secret-like findings make the CLI exit non-zero.
+- `audit` scores the canonical markdown against command/workflow coverage, architecture clarity, non-obvious patterns, conciseness, currency, and actionability, then checks for duplicate headings, vague instructions, long sections, and secret-like values. Secret-like findings make the CLI exit non-zero.
 - `sync` previews canonical-to-target changes by default and writes only with `--apply`.
 - `revise` and `learn` create canonical update proposals. Through `/agent-md:revise` and `/agent-md:learn`, the OpenCode agent can inspect the canonical markdown and submit a full improved version as a reviewable proposal instead of appending raw notes. They do not write markdown files directly.
 - Proposal lifecycle commands list, show, approve, reject, and garbage-collect stored proposals. `proposal:approve` writes only the canonical file when the proposal is not stale. Target files are updated separately with `sync --apply`.
