@@ -77,6 +77,9 @@ describe("createProgram", () => {
       "agent-md:proposal-reject",
       "agent-md:proposal-gc"
     ]));
+    expect(config.command["agent-md:init"].template).toContain("show this exact supported model list");
+    expect(config.command["agent-md:init"].template).toContain("opencode: AGENTS.md");
+    expect(config.command["agent-md:init"].template).toContain("claude: CLAUDE.md");
     expect(config.command["agent-md:doctor"].template).toBe("custom");
     expect(config.command["agent-md:sync-apply"].template).toContain("agent_md_sync");
     expect(Object.keys(config.command["agent-md:sync-apply"]).sort()).toEqual(["description", "template"]);
