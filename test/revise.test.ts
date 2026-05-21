@@ -28,6 +28,18 @@ describe("runRevise", () => {
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
   });
 
+  it("creates a proposal from agent-authored canonical content", async () => {
+    const root = await createConfiguredRoot();
+    const output = await runRevise(root, {
+      notes: "Prefer small diffs",
+      after: "# Rules\n\n- Prefer small diffs\n"
+    });
+
+    expect(output).toContain("Proposal");
+    expect(output).toContain("+- Prefer small diffs");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
+  });
+
   it("rejects disabled llm proposals", async () => {
     const root = await createTempRoot();
 

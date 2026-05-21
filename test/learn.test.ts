@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -20,6 +20,18 @@ describe("runLearn", () => {
 
     expect(output).toContain("kind: learn");
     expect(output).toContain("+Always run npm test");
+  });
+
+  it("creates proposals from agent-authored learned content", async () => {
+    const root = await createConfiguredRoot();
+    const output = await runLearn(root, {
+      notes: "Prefer small commits",
+      after: "# Rules\n\n- Prefer small commits\n"
+    });
+
+    expect(output).toContain("kind: learn");
+    expect(output).toContain("+- Prefer small commits");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
   });
 
   it("creates proposals from notes files", async () => {

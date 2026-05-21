@@ -6,6 +6,7 @@ import { resolveInsideRoot } from "../util/fs.js";
 export type LearnCommandOptions = {
   notes?: string;
   notesFile?: string;
+  after?: string;
   provider?: LlmProvider;
 };
 
@@ -18,7 +19,7 @@ export async function runLearn(root: string, options: LearnCommandOptions): Prom
   if (notes.trim().length === 0)
     throw new Error("learn requires notes or notesFile");
 
-  return runRevise(root, { notes, provider: options.provider, kind: "learn" });
+  return runRevise(root, { notes, after: options.after, provider: options.provider, kind: "learn" });
 }
 
 async function readNotesFile(root: string, path: string | undefined): Promise<string> {
