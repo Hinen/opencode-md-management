@@ -96,53 +96,109 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
 }
 
 export function scoreMarkdownQuality(content: string, findings: AuditFinding[]): AuditQualityReport {
-  const lines = content.split("\n");
-  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
   const criteria: AuditQualityCriterion[] = [
-    scoreCriterion(
-      "Commands/Workflows",
-      20,
-      /\b(npm|pnpm|yarn|bun|dotnet|cargo|go test|pytest|vitest|test|build|lint)\b/i.test(content),
-      "Documents concrete build/test/development commands."
-    ),
-    scoreCriterion(
-      "Architecture Clarity",
-      20,
-      /\b(src|test|package|module|entry|architecture|구조|모듈)\b/i.test(content),
-      "Explains project structure, modules, or entry points."
-    ),
-    scoreCriterion(
-      "Non-Obvious Patterns",
-      15,
-      /\b(gotcha|quirk|workaround|주의|예외|반드시|never|always)\b/i.test(content),
-      "Captures project-specific gotchas or required patterns."
-    ),
-    scoreCriterion(
-      "Conciseness",
-      15,
-      nonEmptyLines.length > 0 && nonEmptyLines.length <= 200 && findings.every((finding) => finding.rule !== "vague-instruction"),
-      "Keeps guidance concise and avoids vague wording."
-    ),
-    scoreCriterion(
-      "Currency",
-      15,
-      !findings.some((finding) => finding.rule === "duplicate-heading" || finding.rule === "section-length"),
-      "Avoids stale duplicate headings and oversized sections."
-    ),
-    scoreCriterion(
-      "Actionability",
-      15,
-      nonEmptyLines.some((line) => /^[-*]\s+\S/.test(line) || /`[^`]+`/.test(line)) && findings.every((finding) => finding.severity !== "error"),
-      "Provides concrete, copy-ready instructions without secret-like values."
-    )
+    scoreCommands(content),
+    scoreArchitecture(content),
+    scorePatterns(content),
+    scoreConciseness(content, findings),
+    scoreCurrency(findings),
+    scoreActionability(content, findings)
   ];
   const score = criteria.reduce((sum, criterion) => sum + criterion.score, 0);
 
   return { score, grade: gradeScore(score), criteria };
 }
 
-function scoreCriterion(name: string, maxScore: number, passed: boolean, message: string): AuditQualityCriterion {
-  return { name, score: passed ? maxScore : 0, maxScore, message };
+function scoreCommands(content: string): AuditQualityCriterion {
+  const concreteCommandMatches = countMatches(content, [
+    /\b(?:npm|pnpm|yarn|bun)\s+(?:install|test|build|run|lint|check|typecheck)\b/gi,
+    /\b(?:dotnet\s+(?:build|test|run)|cargo\s+(?:build|test|run)|go\s+test|pytest|vitest)\b/gi
+  ]);
+  const genericCommandMatches = countMatches(content, [/\b(?:test|build|lint|typecheck)\b/gi]);
+  const score = concreteCommandMatches > 0 ? Math.min(20, 15 + (concreteCommandMatches - 1) * 5) : Math.min(10, genericCommandMatches * 5);
+
+  return criterion("Commands/Workflows", score, 20, "Documents concrete build/test/development commands.");
+}
+
+function scoreArchitecture(content: string): AuditQualityCriterion {
+  const hasArchitectureSection = /^#+\s+(?:architecture|project structure|structure|구조|프로젝트 구조|modules|모듈)\b/mi.test(content);
+  const keywordMatches = countMatches(content, [/\b(?:src|test|tests|package|module|entry|lib|dist|architecture)\b/gi, /(?:구조|모듈|진입점)/g]);
+  const score = Math.min(20, (hasArchitectureSection ? 10 : 0) + Math.min(10, keywordMatches * 2));
+
+  return criterion("Architecture Clarity", score, 20, "Explains project structure, modules, or entry points.");
+}
+
+function scorePatterns(content: string): AuditQualityCriterion {
+  const patternMatches = countMatches(content, [/\b(?:gotcha|quirk|workaround|never|always|important|caution|must)\b/gi, /(?:주의|예외|반드시|금지)/g]);
+  const score = patternMatches === 0 ? 0 : Math.min(15, 9 + (patternMatches - 1) * 3);
+
+  return criterion("Non-Obvious Patterns", score, 15, "Captures project-specific gotchas or required patterns.");
+}
+
+function scoreConciseness(content: string, findings: AuditFinding[]): AuditQualityCriterion {
+  const nonEmptyLines = content.split("\n").map((line) => line.trim()).filter(Boolean);
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const hasVagueInstruction = findings.some((finding) => finding.rule === "vague-instruction");
+  let score = 0;
+
+  if (nonEmptyLines.length > 0 && nonEmptyLines.length <= 150)
+    score += 7;
+  else if (nonEmptyLines.length <= 200)
+    score += 5;
+  else if (nonEmptyLines.length <= 300)
+    score += 2;
+
+  if (wordCount <= 3000)
+    score += 5;
+  else if (wordCount <= 5000)
+    score += 3;
+
+  if (!hasVagueInstruction)
+    score += 3;
+
+  return criterion("Conciseness", score, 15, "Keeps guidance concise and avoids vague wording.");
+}
+
+function scoreCurrency(findings: AuditFinding[]): AuditQualityCriterion {
+  let score = 15;
+
+  if (findings.some((finding) => finding.rule === "duplicate-heading"))
+    score -= 7;
+
+  if (findings.some((finding) => finding.rule === "section-length"))
+    score -= 8;
+
+  return criterion("Currency", Math.max(0, score), 15, "Avoids stale duplicate headings and oversized sections.");
+}
+
+function scoreActionability(content: string, findings: AuditFinding[]): AuditQualityCriterion {
+  const hasLists = /^[-*]\s+\S/m.test(content);
+  const hasInlineCode = /`[^`]+`/.test(content);
+  const codeBlockCount = (content.match(/```/g) ?? []).length / 2;
+  const hasSecrets = findings.some((finding) => finding.severity === "error");
+  let score = 0;
+
+  if (hasLists)
+    score += 5;
+
+  if (hasInlineCode)
+    score += 8;
+
+  if (codeBlockCount >= 1)
+    score += 4;
+
+  if (!hasSecrets)
+    score += 2;
+
+  return criterion("Actionability", Math.min(15, score), 15, "Provides concrete, copy-ready instructions without secret-like values.");
+}
+
+function criterion(name: string, score: number, maxScore: number, message: string): AuditQualityCriterion {
+  return { name, score, maxScore, message };
+}
+
+function countMatches(content: string, patterns: RegExp[]): number {
+  return patterns.reduce((sum, pattern) => sum + (content.match(pattern) ?? []).length, 0);
 }
 
 function gradeScore(score: number): AuditQualityReport["grade"] {

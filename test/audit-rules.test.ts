@@ -35,10 +35,13 @@ describe("auditMarkdown", () => {
       "# Project Instructions",
       "## Commands",
       "- Run `npm test` before reporting completion.",
+      "- Run `npm run build` before publishing.",
       "## Architecture",
       "- Source lives in `src/` and tests live in `test/`.",
       "## Gotchas",
-      "- Always keep proposal approval separate from sync apply."
+      "- Always keep proposal approval separate from sync apply.",
+      "- Never apply sync without reviewing the generated diff.",
+      "- You must keep local-only notes out of mirrored files."
     ].join("\n");
     const findings = auditMarkdown(content, { maxSectionLines: 200, forbidSecretsPatterns: true });
     const quality = scoreMarkdownQuality(content, findings);
@@ -52,5 +55,28 @@ describe("auditMarkdown", () => {
       "Currency",
       "Actionability"
     ]);
+  });
+
+  it("assigns partial scores instead of binary pass or fail", () => {
+    const content = [
+      "# Project Instructions",
+      "## Commands",
+      "- Run test before release.",
+      "## Architecture",
+      "- The module entry is documented.",
+      "## Notes",
+      "- Maybe refine this later."
+    ].join("\n");
+    const findings = auditMarkdown(content, { maxSectionLines: 200, forbidSecretsPatterns: true });
+    const quality = scoreMarkdownQuality(content, findings);
+    const commands = quality.criteria.find((criterion) => criterion.name === "Commands/Workflows");
+    const patterns = quality.criteria.find((criterion) => criterion.name === "Non-Obvious Patterns");
+    const conciseness = quality.criteria.find((criterion) => criterion.name === "Conciseness");
+
+    expect(commands?.score).toBeGreaterThan(0);
+    expect(commands?.score).toBeLessThan(commands!.maxScore);
+    expect(patterns?.score).toBe(0);
+    expect(conciseness?.score).toBeGreaterThan(0);
+    expect(conciseness?.score).toBeLessThan(conciseness!.maxScore);
   });
 });

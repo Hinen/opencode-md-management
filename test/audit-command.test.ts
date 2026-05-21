@@ -30,10 +30,13 @@ describe("runAuditReport", () => {
       "# Project Instructions",
       "## Commands",
       "- Run `npm test` before reporting completion.",
+      "- Run `npm run build` before publishing.",
       "## Architecture",
       "- Source lives in `src/` and tests live in `test/`.",
       "## Gotchas",
-      "- Always keep proposal approval separate from sync apply."
+      "- Always keep proposal approval separate from sync apply.",
+      "- Never apply sync without reviewing the generated diff.",
+      "- You must keep local-only notes out of mirrored files."
     ].join("\n"), "utf8");
     await runInit(root);
 
