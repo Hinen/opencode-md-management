@@ -6,7 +6,8 @@ Manage AI instruction markdown files for OpenCode.
 
 ## What it does
 
-- Plugin tools expose the same management surface inside OpenCode: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_revise`, `agent_md_learn`, `agent_md_proposal_list`, `agent_md_proposal_show`, `agent_md_proposal_approve`, `agent_md_proposal_reject`, and `agent_md_proposal_gc`.
+- OpenCode slash commands expose the management surface: `/agent-md:init`, `/agent-md:doctor`, `/agent-md:audit`, `/agent-md:sync`, `/agent-md:sync-apply`, `/agent-md:revise`, `/agent-md:learn`, `/agent-md:proposals`, `/agent-md:proposal-show`, `/agent-md:proposal-approve`, `/agent-md:proposal-reject`, and `/agent-md:proposal-gc`.
+- Plugin tools remain available as the execution surface behind those commands: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_revise`, `agent_md_learn`, `agent_md_proposal_list`, `agent_md_proposal_show`, `agent_md_proposal_approve`, `agent_md_proposal_reject`, and `agent_md_proposal_gc`.
 - `init` creates `.agent-md.json` without touching markdown files.
 - `doctor` reports canonical, manifest, and target file status.
 - `audit` checks the canonical markdown for duplicate headings, vague instructions, long sections, and secret-like values. Secret-like findings make the CLI exit non-zero.
@@ -20,7 +21,7 @@ Manage AI instruction markdown files for OpenCode.
 - No automatic overwrite of existing target files.
 - No model-specific dialect rewriting.
 - No automatic session learning append.
-- No drift watcher, session mining, slash command, or TUI toast integration in this release.
+- No drift watcher, session mining, or TUI toast integration in this release.
 
 ## Install
 
@@ -31,7 +32,7 @@ npm run build
 
 ## Usage
 
-Inside OpenCode, install the package as a plugin and call the exposed tools when managing instruction files.
+Inside OpenCode, install the package as a plugin and use the `/agent-md:*` slash commands when managing instruction files.
 
 ```json
 {
@@ -39,7 +40,24 @@ Inside OpenCode, install the package as a plugin and call the exposed tools when
 }
 ```
 
-The same functionality is available as a standalone CLI:
+The slash command surface is:
+
+```text
+/agent-md:init
+/agent-md:doctor
+/agent-md:audit
+/agent-md:sync
+/agent-md:sync-apply [--force] [target]
+/agent-md:revise Add migration troubleshooting rules
+/agent-md:learn --notes-file ./session-notes.md
+/agent-md:proposals [pending|approved|stale|rejected]
+/agent-md:proposal-show <id>
+/agent-md:proposal-approve <id>
+/agent-md:proposal-reject <id> [reason]
+/agent-md:proposal-gc [--older-than-days 30] [--status approved,stale,rejected]
+```
+
+The same functionality is also available as a standalone CLI:
 
 ```bash
 npx opencode-md-management init
@@ -110,14 +128,14 @@ Sync is canonical-to-target only. Existing target files that drift from the last
 
 Proposal inventory is fail-closed for valid proposal ids: non-JSON files and invalid-id filenames are ignored, but corrupt JSON or schema-invalid files with valid proposal ids raise an error instead of silently disappearing from lists.
 
-## Plugin hook surface (current)
+## Plugin hook surface
 
-`@opencode-ai/plugin@1.15.5` exposes the `tool` surface used by this package. This release does not ship a drift watcher, session mining, slash command UX, or TUI toast integration.
+`@opencode-ai/plugin@1.15.5` exposes the `config` hook used to register `/agent-md:*` commands in `config.command`, plus the `tool` surface used to execute the underlying operations. This release does not ship a drift watcher, session mining, or TUI toast integration.
 
 ## Deferred
 
 - No automatic session mining.
-- No slash command or TUI toast integration.
+- No TUI toast integration.
 - No drift watcher.
 - No model-specific dialect rewriting.
 - No section-level structured editing.
