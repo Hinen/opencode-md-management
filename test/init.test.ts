@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -29,6 +29,31 @@ describe("runInit", () => {
     await writeFile(join(root, "GEMINI.md"), "# Rules\n", "utf8");
 
     expect(await runInit(root)).toBe("Created .agent-md.json with canonical GEMINI.md");
+  });
+
+  it("uses the explicit primary model as canonical", async () => {
+    const root = await createTempRoot();
+
+    expect(await runInit(root, { model: "gemini" })).toBe("Created .agent-md.json with canonical GEMINI.md");
+    expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"canonical": "GEMINI.md"');
+  });
+
+  it("rejects ambiguous existing instruction files with different content", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
+
+    await expect(runInit(root)).rejects.toThrow(/Choose the primary model explicitly/);
+  });
+
+  it("allows explicit model when existing instruction files differ", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
+
+    expect(await runInit(root, { model: "claude" })).toBe("Created .agent-md.json with canonical CLAUDE.md");
   });
 
   it("throws a friendly error when config exists", async () => {
