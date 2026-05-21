@@ -27,9 +27,10 @@ export type ScopeContext = {
 const ignoredDirectories = new Set([".git", ".agent-md", ".agent-md.local", "node_modules", "dist", "coverage"]);
 
 export async function discoverScopes(root: string, selection: ScopeSelection = undefined): Promise<ScopeContext[]> {
+  const includeDiscovered = selection === "all" || Boolean(selection && selection !== "project");
   const scopes = uniqueScopes([
     await projectScope(root),
-    ...selection === "all" ? await discoveredScopes(root) : []
+    ...includeDiscovered ? await discoveredScopes(root) : []
   ]);
 
   if (!selection || selection === "project")
