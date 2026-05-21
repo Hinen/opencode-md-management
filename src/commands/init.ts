@@ -2,7 +2,8 @@ import { access, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { configFileName, parseConfig } from "../core/config.js";
 
-const knownTargets = ["CLAUDE.md", "GEMINI.md", ".codex/AGENTS.md", ".github/copilot-instructions.md"];
+const knownCanonicalCandidates = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".codex/AGENTS.md", ".github/copilot-instructions.md"];
+const knownTargets = knownCanonicalCandidates.filter((path) => path !== "AGENTS.md");
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -35,11 +36,10 @@ export async function runInit(root: string): Promise<string> {
 }
 
 async function getDefaultCanonical(root: string): Promise<string> {
-  if (await exists(join(root, "AGENTS.md")))
-    return "AGENTS.md";
-
-  if (await exists(join(root, "CLAUDE.md")))
-    return "CLAUDE.md";
+  for (const path of knownCanonicalCandidates) {
+    if (await exists(join(root, path)))
+      return path;
+  }
 
   return "AGENTS.md";
 }

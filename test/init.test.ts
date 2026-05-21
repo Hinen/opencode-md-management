@@ -23,6 +23,14 @@ describe("runInit", () => {
     expect(await runInit(root)).toBe("Created .agent-md.json with canonical CLAUDE.md");
   });
 
+  it("uses existing GEMINI.md as canonical when AGENTS.md and CLAUDE.md are absent", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "GEMINI.md"), "# Rules\n", "utf8");
+
+    expect(await runInit(root)).toBe("Created .agent-md.json with canonical GEMINI.md");
+  });
+
   it("throws a friendly error when config exists", async () => {
     const root = await createTempRoot();
 
