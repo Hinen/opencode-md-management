@@ -2,6 +2,7 @@ import { resolveCanonical } from "../core/canonical.js";
 import { auditMarkdown, scoreMarkdownQuality } from "../core/audit-rules.js";
 import { parseConfig } from "../core/config.js";
 import { discoverScopes, type ScopeContext, type ScopeSelection } from "../core/scope-context.js";
+import { createSyncPlan } from "../core/sync.js";
 
 export type AuditReport = {
   output: string;
@@ -44,7 +45,8 @@ async function auditScope(scope: ScopeContext): Promise<AuditReport> {
   const qualityOutput = [
     `scope: ${displayScopeId(scope.id)}`,
     `${canonical.path} quality: ${quality.score}/100 (${quality.grade})`,
-    ...quality.criteria.map((criterion) => `${criterion.name}: ${criterion.score}/${criterion.maxScore} - ${criterion.message}`)
+    ...quality.criteria.map((criterion) => `${criterion.name}: ${criterion.score}/${criterion.maxScore} - ${criterion.message}`),
+    ...await targetStatusOutput(scope, config)
   ];
 
   if (findings.length === 0)
@@ -57,6 +59,18 @@ async function auditScope(scope: ScopeContext): Promise<AuditReport> {
     ].join("\n"),
     hasErrors: findings.some((finding) => finding.severity === "error")
   };
+}
+
+async function targetStatusOutput(scope: ScopeContext, config: ReturnType<typeof parseConfig>): Promise<string[]> {
+  if (!scope.adopted || config.targets.length === 0)
+    return [];
+
+  const plan = await createSyncPlan(scope.root, config);
+
+  if (plan.targets.length === 0)
+    return [];
+
+  return ["Targets:", ...plan.targets.map((target) => `${target.path}: ${target.status}`)];
 }
 
 function displayScopeId(id: string): string {
