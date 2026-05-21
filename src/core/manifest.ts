@@ -45,6 +45,11 @@ const manifestV2Schema = z.object({
 });
 
 export const manifestPath = ".agent-md/manifest.json";
+export const localManifestPath = ".agent-md.local/manifest.json";
+
+export function manifestPathForScope(scopeId: string): string {
+  return scopeId === "local" ? localManifestPath : manifestPath;
+}
 
 export function parseManifest(input: unknown): AgentMdManifest {
   const version = (input as { version?: unknown }).version;
@@ -70,9 +75,9 @@ export function parseManifest(input: unknown): AgentMdManifest {
   return { ...manifest, canonical: manifest.canonical ?? manifest.primary };
 }
 
-export async function readManifest(root: string): Promise<AgentMdManifest | undefined> {
+export async function readManifest(root: string, path = manifestPath): Promise<AgentMdManifest | undefined> {
   try {
-    const raw = await readFile(join(root, manifestPath), "utf8");
+    const raw = await readFile(join(root, path), "utf8");
 
     return parseManifest(JSON.parse(raw));
   } catch (error) {
@@ -83,14 +88,14 @@ export async function readManifest(root: string): Promise<AgentMdManifest | unde
   }
 }
 
-export async function writeManifest(root: string, manifest: AgentMdManifest): Promise<void> {
-  const path = resolveInsideRoot(root, manifestPath);
-  const tempPath = `${path}.${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`;
+export async function writeManifest(root: string, manifest: AgentMdManifest, path = manifestPath): Promise<void> {
+  const resolvedPath = resolveInsideRoot(root, path);
+  const tempPath = `${resolvedPath}.${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`;
 
-  await assertParentChainInsideRoot(root, manifestPath);
-  await ensureParentDirectory(path);
+  await assertParentChainInsideRoot(root, path);
+  await ensureParentDirectory(resolvedPath);
   await writeFile(tempPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  await rename(tempPath, path);
+  await rename(tempPath, resolvedPath);
 }
 
 export function createManifest(input: {

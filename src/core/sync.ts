@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { renderUnifiedDiff } from "./diff.js";
 import { hashContent } from "./hash.js";
-import { createManifest, readManifest, writeManifest } from "./manifest.js";
+import { createManifest, manifestPathForScope, readManifest, writeManifest } from "./manifest.js";
 import { resolveCanonical } from "./canonical.js";
 import { atomicWrite } from "./writer.js";
 import type { AgentMdConfig, AgentMdManifest, CanonicalFile, ManifestTarget } from "./types.js";
@@ -24,6 +24,7 @@ export type SyncPlan = {
   canonical: CanonicalFile;
   manifest?: AgentMdManifest;
   targets: TargetSyncPlan[];
+  manifestPath: string;
 };
 
 async function readTarget(root: string, path: string): Promise<string | undefined> {
@@ -39,7 +40,8 @@ async function readTarget(root: string, path: string): Promise<string | undefine
 
 export async function createSyncPlan(root: string, config: AgentMdConfig): Promise<SyncPlan> {
   const canonical = await resolveCanonical(root, config);
-  const manifest = await readManifest(root);
+  const manifestPath = manifestPathForScope(config.scope.id);
+  const manifest = await readManifest(root, manifestPath);
   const targets = await Promise.all(config.targets
     .filter((target) => target.enabled)
     .map(async (target) => {
@@ -62,7 +64,7 @@ export async function createSyncPlan(root: string, config: AgentMdConfig): Promi
       } satisfies TargetSyncPlan;
     }));
 
-  return { canonical, manifest, targets };
+  return { canonical, manifest, targets, manifestPath };
 }
 
 export async function applySyncPlan(root: string, config: AgentMdConfig, plan: SyncPlan, options: { force?: boolean } = {}): Promise<AgentMdManifest> {
@@ -83,9 +85,14 @@ export async function applySyncPlan(root: string, config: AgentMdConfig, plan: S
       });
   }
 
-  const manifest = mergeManifest(plan.manifest, plan.canonical, plan.targets);
+  const manifest = mergeManifest(plan.manifest, plan.canonical, plan.targets, {
+    root,
+    configPath: config.scope.id === "local" ? ".agent-md.local.json" : ".agent-md.json",
+    configHash: hashContent(JSON.stringify(config)),
+    scope: config.scope
+  });
 
-  await writeManifest(root, manifest);
+  await writeManifest(root, manifest, plan.manifestPath);
 
   return manifest;
 }
@@ -106,7 +113,12 @@ function getTargetStatus(before: string | undefined, currentHash: string | undef
   return "outdated";
 }
 
-export function mergeManifest(previous: AgentMdManifest | undefined, canonical: CanonicalFile, appliedTargets: TargetSyncPlan[]): AgentMdManifest {
+export function mergeManifest(previous: AgentMdManifest | undefined, canonical: CanonicalFile, appliedTargets: TargetSyncPlan[], metadata?: {
+  root: string;
+  configPath: string;
+  configHash: string;
+  scope: AgentMdManifest["scope"];
+}): AgentMdManifest {
   const targets = new Map<string, ManifestTarget>(previous?.targets.map((target) => [target.path, target]) ?? []);
 
   for (const target of appliedTargets) {
@@ -118,10 +130,10 @@ export function mergeManifest(previous: AgentMdManifest | undefined, canonical: 
   }
 
   return createManifest({
-    root: previous?.root ?? ".",
-    configPath: previous?.configPath ?? ".agent-md.json",
-    configHash: previous?.configHash ?? hashContent("legacy-sync"),
-    scope: previous?.scope ?? { id: "project", kind: "project", tool: null },
+    root: metadata?.root ?? previous?.root ?? ".",
+    configPath: metadata?.configPath ?? previous?.configPath ?? ".agent-md.json",
+    configHash: metadata?.configHash ?? previous?.configHash ?? hashContent("legacy-sync"),
+    scope: metadata?.scope ?? previous?.scope ?? { id: "project", kind: "project", tool: null },
     primary: {
       path: canonical.path,
       hash: canonical.hash

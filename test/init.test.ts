@@ -36,6 +36,7 @@ describe("runInit", () => {
 
     expect(await runInit(root, { model: "gemini" })).toBe("Created .agent-md.json with canonical GEMINI.md");
     expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"canonical": "GEMINI.md"');
+    expect(await readFile(join(root, ".agent-md", "manifest.json"), "utf8")).toContain('"id": "project"');
   });
 
   it("keeps mirror targets disabled when only the primary model is selected", async () => {
@@ -101,6 +102,7 @@ describe("runInit", () => {
 
     expect(await runInit(root, { scope: "local" })).toBe("Created local config with primary .claude.local.md");
     expect(await readFile(join(root, ".agent-md.local.json"), "utf8")).toContain('"id": "local"');
+    expect(await readFile(join(root, ".agent-md.local", "manifest.json"), "utf8")).toContain('"id": "local"');
   });
 
   it("initializes explicit global tool scopes under their tool roots", async () => {

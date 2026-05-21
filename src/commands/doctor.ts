@@ -1,4 +1,5 @@
 import { discoverScopes, type ScopeSelection } from "../core/scope-context.js";
+import { manifestPathForScope, readManifest } from "../core/manifest.js";
 import { createSyncPlan } from "../core/sync.js";
 
 export type DoctorCommandOptions = {
@@ -31,7 +32,9 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
       plan = await createSyncPlan(scope.root, scope.config);
     } catch (error) {
       if (error instanceof Error && (error.message.includes("Canonical instruction file not found") || error.message.includes("canonical instruction markdown"))) {
-        lines.push("  manifest: missing", "  targets:", `  error: ${error.message}`);
+        const manifest = await readManifest(scope.root, manifestPathForScope(scope.config.scope.id));
+
+        lines.push(`  manifest: ${manifest ? "present" : "missing"}`, "  targets:", `  error: ${error.message}`);
         output.push(lines.join("\n"));
         continue;
       }

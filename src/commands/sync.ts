@@ -19,6 +19,9 @@ export async function runSync(root: string, options: SyncCommandOptions = {}): P
   const targets = options.target ? plan.targets.filter((target) => target.path === options.target) : plan.targets;
   const scopedPlan = { ...plan, targets };
 
+  if (scopedPlan.targets.every((target) => target.status === "ok"))
+    return "No changes";
+
   if (!options.apply) {
     const diffs = scopedPlan.targets
       .filter((target) => target.diff.length > 0)

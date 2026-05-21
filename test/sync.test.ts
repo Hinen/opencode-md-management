@@ -6,6 +6,8 @@ import { parseConfig } from "../src/core/config.js";
 import { hashContent } from "../src/core/hash.js";
 import { writeManifest } from "../src/core/manifest.js";
 import { applySyncPlan, createSyncPlan } from "../src/core/sync.js";
+import { runInit } from "../src/commands/init.js";
+import { runSync } from "../src/commands/sync.js";
 
 async function createTempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "opencode-md-management-"));
@@ -107,5 +109,20 @@ describe("sync", () => {
 
     await expect(applySyncPlan(root, config, plan)).rejects.toThrow(/GEMINI\.md/);
     expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("old rules");
+  });
+
+  it("syncs explicitly selected local scopes without touching project manifest", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, ".claude.local.md"), "local rules", "utf8");
+    await runInit(root);
+    const projectManifest = await readFile(join(root, ".agent-md", "manifest.json"), "utf8");
+
+    await runInit(root, { scope: "local", adopt: true });
+
+    expect(await runSync(root, { scope: "local", apply: true })).toBe("No changes");
+    expect(await readFile(join(root, ".agent-md", "manifest.json"), "utf8")).toBe(projectManifest);
+    expect(await readFile(join(root, ".agent-md.local", "manifest.json"), "utf8")).toContain('"id": "local"');
   });
 });

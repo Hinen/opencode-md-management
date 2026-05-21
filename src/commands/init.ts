@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { configFileName, localConfigFileName, parseConfig } from "../core/config.js";
-import { createManifest, writeManifest } from "../core/manifest.js";
+import { createManifest, manifestPathForScope, writeManifest } from "../core/manifest.js";
 import { hashContent } from "../core/hash.js";
 import { defaultPrimaryForScope, globalScopeRoot } from "../core/scope-context.js";
 import type { AgentMdScopeIdentity, ScopeTool } from "../core/types.js";
@@ -57,6 +57,8 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
     throw error;
   }
 
+  await writeInitialManifest(root, join(root, configFileName), config);
+
   return `Created ${configFileName} with canonical ${canonical}`;
 }
 
@@ -84,19 +86,23 @@ async function runScopedInit(root: string, options: InitCommandOptions): Promise
     throw error;
   }
 
-  const primaryPath = join(scopeRoot, primary);
-  const primaryHash = options.adopt && await exists(primaryPath) ? hashContent(await readFile(primaryPath, "utf8")) : hashContent("");
-  const manifest = createManifest({
-    root: scopeRoot,
-    configPath,
-    configHash: hashContent(JSON.stringify(config)),
-    scope,
-    primary: { path: primary, hash: primaryHash }
-  });
-
-  await writeManifest(scopeRoot, manifest);
+  await writeInitialManifest(scopeRoot, configPath, config, options.adopt ?? false);
 
   return `Created ${scope.id} config with primary ${primary}`;
+}
+
+async function writeInitialManifest(root: string, configPath: string, config: ReturnType<typeof parseConfig>, adopt = true): Promise<void> {
+  const primaryPath = join(root, config.primary);
+  const primaryHash = adopt && await exists(primaryPath) ? hashContent(await readFile(primaryPath, "utf8")) : hashContent("");
+  const manifest = createManifest({
+    root,
+    configPath,
+    configHash: hashContent(JSON.stringify(config)),
+    scope: config.scope,
+    primary: { path: config.primary, hash: primaryHash }
+  });
+
+  await writeManifest(root, manifest, manifestPathForScope(config.scope.id));
 }
 
 function parseScopeOption(scope: string | undefined): AgentMdScopeIdentity {
