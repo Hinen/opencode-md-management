@@ -1,4 +1,4 @@
-import { tool, type Config, type Plugin } from "@opencode-ai/plugin";
+import { tool, type Config, type Plugin, type ToolContext } from "@opencode-ai/plugin";
 import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
@@ -114,7 +114,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         mirrors: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to enable explicitly.")
       },
       async execute(args, context) {
-        return runInit(context.worktree, args);
+        return runInit(projectRoot(context), args);
       }
     }),
 
@@ -122,7 +122,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
       description: "Inspect canonical and target AI instruction markdown file status.",
       args: {},
       async execute(_, context) {
-        return runDoctor(context.worktree);
+        return runDoctor(projectRoot(context));
       }
     }),
 
@@ -130,7 +130,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
       description: "Audit the canonical AI instruction markdown file for management issues.",
       args: {},
       async execute(_, context) {
-        return runAudit(context.worktree);
+        return runAudit(projectRoot(context));
       }
     }),
 
@@ -142,7 +142,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         target: tool.schema.string().optional().describe("Limit sync to one target path.")
       },
       async execute(args, context) {
-        return runSync(context.worktree, args);
+        return runSync(projectRoot(context), args);
       }
     }),
 
@@ -153,7 +153,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         after: tool.schema.string().optional().describe("Full improved canonical markdown content authored by the agent.")
       },
       async execute(args, context) {
-        return runRevise(context.worktree, args);
+        return runRevise(projectRoot(context), args);
       }
     }),
 
@@ -165,7 +165,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         after: tool.schema.string().optional().describe("Full improved canonical markdown content authored by the agent.")
       },
       async execute(args, context) {
-        return runLearn(context.worktree, args);
+        return runLearn(projectRoot(context), args);
       }
     }),
 
@@ -175,7 +175,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         id: tool.schema.string().describe("Proposal id.")
       },
       async execute(args, context) {
-        return runProposalShow(context.worktree, args.id);
+        return runProposalShow(projectRoot(context), args.id);
       }
     }),
 
@@ -186,7 +186,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         json: tool.schema.boolean().optional().describe("Return a JSON array instead of tab-delimited text.")
       },
       async execute(args, context) {
-        return runProposalList(context.worktree, args);
+        return runProposalList(projectRoot(context), args);
       }
     }),
 
@@ -196,7 +196,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         id: tool.schema.string().describe("Proposal id.")
       },
       async execute(args, context) {
-        return runProposalApprove(context.worktree, args.id);
+        return runProposalApprove(projectRoot(context), args.id);
       }
     }),
 
@@ -207,7 +207,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
         reason: tool.schema.string().optional().describe("Human-readable rejection reason.")
       },
       async execute(args, context) {
-        return runProposalReject(context.worktree, args.id, { reason: args.reason });
+        return runProposalReject(projectRoot(context), args.id, { reason: args.reason });
       }
     }),
 
@@ -218,13 +218,17 @@ export const OpencodeMdManagement: Plugin = async () => ({
         status: tool.schema.string().optional().describe("Comma-separated statuses (approved,stale,rejected).")
       },
       async execute(args, context) {
-        return runProposalGc(context.worktree, args);
+        return runProposalGc(projectRoot(context), args);
       }
     })
   }
 });
 
 export default OpencodeMdManagement;
+
+function projectRoot(context: ToolContext): string {
+  return context.directory || context.worktree;
+}
 
 function createCommand(description: string, instruction: string, includeArguments = false): OpenCodeCommand {
   return {

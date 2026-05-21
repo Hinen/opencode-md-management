@@ -26,6 +26,16 @@ describe("plugin tools", () => {
     ]));
   });
 
+  it("uses the OpenCode project directory instead of the worktree root", async () => {
+    const root = await createTempRoot();
+    const hooks = await OpencodeMdManagement({} as never);
+    const context = { directory: root, worktree: "/" } as never;
+
+    expect(await hooks.tool!.agent_md_init.execute({ model: "opencode", mirrors: [] }, context)).toBe("Created .agent-md.json with canonical AGENTS.md");
+
+    expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"canonical": "AGENTS.md"');
+  });
+
   it("executes revise through a fake OpenCode context", async () => {
     const root = await createTempRoot();
     const hooks = await OpencodeMdManagement({} as never);
