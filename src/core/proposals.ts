@@ -152,6 +152,9 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
   if (proposal.status === "approved")
     return proposal;
 
+  if (proposal.status !== "pending")
+    throw new Error(`Cannot approve a ${proposal.status} proposal: ${id}`);
+
   const canonical = await resolveCanonical(root, config);
 
   if (proposal.canonicalPath !== canonical.path) {

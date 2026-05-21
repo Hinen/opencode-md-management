@@ -78,6 +78,31 @@ describe("proposals", () => {
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("manual");
   });
 
+  it("refuses to approve terminal proposals", async () => {
+    const root = await createTempRoot();
+    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+
+    const stale = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nstale"
+    });
+    const rejected = await createProposal(root, {
+      source: { kind: "learn" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nrejected"
+    });
+
+    await overwriteProposal(root, { ...stale, status: "stale" });
+    await rejectProposal(root, rejected.id, { reason: "obsolete" });
+
+    await expect(approveProposal(root, stale.id, config)).rejects.toThrow(/Cannot approve a stale proposal/);
+    await expect(approveProposal(root, rejected.id, config)).rejects.toThrow(/Cannot approve a rejected proposal/);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
+  });
+
   it("rejects proposals created for a different canonical path", async () => {
     const root = await createTempRoot();
     const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
