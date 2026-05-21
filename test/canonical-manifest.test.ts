@@ -24,6 +24,14 @@ describe("canonical and manifest", () => {
     expect(canonical.content).toBe("agents");
   });
 
+  it("tells the user where to create a missing configured canonical file", async () => {
+    const root = await createTempRoot();
+
+    await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", targets: [] })))
+      .rejects
+      .toThrow(`Create the markdown file manually at: ${join(root, "AGENTS.md")}`);
+  });
+
   it("round-trips manifest files", async () => {
     const root = await createTempRoot();
     const manifest = parseManifest({

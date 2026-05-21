@@ -24,5 +24,14 @@ export async function resolveCanonical(root: string, config: AgentMdConfig): Pro
       return { path: candidate, content, hash: hashContent(content) };
   }
 
-  throw new Error(`Canonical instruction file not found: ${candidates.join(", ")}`);
+  throw new Error(missingCanonicalMessage(root, candidates));
+}
+
+function missingCanonicalMessage(root: string, candidates: string[]): string {
+  const paths = candidates.map((candidate) => join(root, candidate));
+
+  if (paths.length === 1)
+    return `Canonical instruction file not found: ${candidates[0]}. Create the markdown file manually at: ${paths[0]}`;
+
+  return `Canonical instruction file not found: ${candidates.join(", ")}. Create one of these markdown files manually: ${paths.join(", ")}`;
 }
