@@ -11,6 +11,24 @@ async function createTempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "opencode-md-management-"));
 }
 
+async function withLanguage<T>(language: string | undefined, callback: () => Promise<T>): Promise<T> {
+  const previous = process.env.LANGUAGE;
+
+  if (language === undefined)
+    delete process.env.LANGUAGE;
+  else
+    process.env.LANGUAGE = language;
+
+  try {
+    return await callback();
+  } finally {
+    if (previous === undefined)
+      delete process.env.LANGUAGE;
+    else
+      process.env.LANGUAGE = previous;
+  }
+}
+
 describe("canonical and manifest", () => {
   it("resolves AGENTS.md before CLAUDE.md", async () => {
     const root = await createTempRoot();
@@ -24,12 +42,20 @@ describe("canonical and manifest", () => {
     expect(canonical.content).toBe("agents");
   });
 
-  it("tells the user where to create a missing configured canonical file", async () => {
+  it("uses the runtime language when telling the user where to create a missing configured canonical file", async () => {
     const root = await createTempRoot();
 
-    await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", targets: [] })))
-      .rejects
-      .toThrow(`Create the markdown file manually at: ${join(root, "AGENTS.md")}`);
+    await withLanguage("ko-KR", async () => {
+      await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", targets: [] })))
+        .rejects
+        .toThrow(`다음 경로에 markdown 파일을 직접 만들어 주세요: ${join(root, "AGENTS.md")}`);
+    });
+
+    await withLanguage("en-US", async () => {
+      await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", targets: [] })))
+        .rejects
+        .toThrow(`Create the markdown file manually at: ${join(root, "AGENTS.md")}`);
+    });
   });
 
   it("round-trips manifest files", async () => {
