@@ -1,5 +1,4 @@
-import { loadConfig } from "../core/config.js";
-import { configForScope, discoverInstructionScopes, type ScopeSelection } from "../core/scope.js";
+import { requireWritableScope, type ScopeSelection } from "../core/scope-context.js";
 import { applySyncPlan, createSyncPlan } from "../core/sync.js";
 
 export type SyncCommandOptions = {
@@ -10,14 +9,8 @@ export type SyncCommandOptions = {
 };
 
 export async function runSync(root: string, options: SyncCommandOptions = {}): Promise<string> {
-  const config = await loadConfig(root);
-  const scopes = await discoverInstructionScopes(root, config, options.scope);
-
-  if (scopes.length !== 1)
-    throw new Error("sync requires a single scope. Pass --scope <scope> instead of --scope all.");
-
-  const scope = scopes[0];
-  const scopedConfig = configForScope(config, scope);
+  const scope = await requireWritableScope(root, options.scope);
+  const scopedConfig = scope.config!;
   const plan = await createSyncPlan(scope.root, scopedConfig);
 
   if (options.target && !plan.targets.some((target) => target.path === options.target))

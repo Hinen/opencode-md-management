@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { renderUnifiedDiff } from "./diff.js";
 import { hashContent } from "./hash.js";
-import { readManifest, writeManifest } from "./manifest.js";
+import { createManifest, readManifest, writeManifest } from "./manifest.js";
 import { resolveCanonical } from "./canonical.js";
 import { atomicWrite } from "./writer.js";
 import type { AgentMdConfig, AgentMdManifest, CanonicalFile, ManifestTarget } from "./types.js";
@@ -43,6 +43,9 @@ export async function createSyncPlan(root: string, config: AgentMdConfig): Promi
   const targets = await Promise.all(config.targets
     .filter((target) => target.enabled)
     .map(async (target) => {
+      if (target.mode !== "mirror")
+        throw new Error(`Unsupported target mode: ${target.mode}`);
+
       const before = await readTarget(root, target.path);
       const manifestTarget = manifest?.targets.find((entry) => entry.path === target.path);
       const currentHash = before === undefined ? undefined : hashContent(before);
@@ -114,12 +117,15 @@ export function mergeManifest(previous: AgentMdManifest | undefined, canonical: 
     });
   }
 
-  return {
-    version: 1,
-    canonical: {
+  return createManifest({
+    root: previous?.root ?? ".",
+    configPath: previous?.configPath ?? ".agent-md.json",
+    configHash: previous?.configHash ?? hashContent("legacy-sync"),
+    scope: previous?.scope ?? { id: "project", kind: "project", tool: null },
+    primary: {
       path: canonical.path,
       hash: canonical.hash
     },
     targets: [...targets.values()].sort((left, right) => left.path.localeCompare(right.path))
-  };
+  });
 }
