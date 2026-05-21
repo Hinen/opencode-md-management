@@ -93,4 +93,16 @@ describe("CLI workflow handlers", () => {
 
     await expect(runSync(root, { target: "NOPE.md" })).rejects.toThrow(/Unknown target/);
   });
+
+  it("sync only sees explicitly enabled init mirrors", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "CLAUDE.md"), "# Rules\n", "utf8");
+    await runInit(root, { model: "claude", mirrors: ["opencode"] });
+
+    const preview = await runSync(root);
+
+    expect(preview).toContain("--- a/AGENTS.md");
+    expect(preview).not.toContain("--- a/GEMINI.md");
+  });
 });
