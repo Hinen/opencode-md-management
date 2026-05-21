@@ -6,13 +6,22 @@ import { assertManagedPath, assertUniqueManagedPaths } from "../util/fs.js";
 
 const targetSchema = z.object({
   path: z.string().min(1),
-  mode: z.literal("mirror").default("mirror"),
+  mode: z.enum(["mirror", "local"]).default("mirror"),
   enabled: z.boolean().default(true)
 });
 
+const scopeSchema = z.object({
+  id: z.string().min(1),
+  root: z.string().min(1),
+  config: z.string().min(1).optional(),
+  canonical: z.string().min(1).optional()
+});
+
 const configSchema = z.object({
+  scope: z.string().min(1).optional(),
   canonical: z.string().min(1).optional(),
   targets: z.array(targetSchema).default([]),
+  scopes: z.array(scopeSchema).default([]),
   sync: z.object({
     requireGitClean: z.boolean().default(true),
     backupDir: z.string().min(1).default(".agent-md/backups")
@@ -34,6 +43,11 @@ export function parseConfig(input: unknown): AgentMdConfig {
 
   if (config.canonical)
     assertManagedPath(config.canonical, { allowAgentMdInternal: false });
+
+  for (const scope of config.scopes) {
+    if (scope.canonical)
+      assertManagedPath(scope.canonical, { allowAgentMdInternal: false });
+  }
 
   for (const target of config.targets)
     assertManagedPath(target.path, { canonical: config.canonical ?? "AGENTS.md" });

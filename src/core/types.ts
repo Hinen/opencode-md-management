@@ -1,4 +1,4 @@
-export type TargetMode = "mirror";
+export type TargetMode = "mirror" | "local";
 
 export type AgentMdTarget = {
   path: string;
@@ -7,8 +7,10 @@ export type AgentMdTarget = {
 };
 
 export type AgentMdConfig = {
+  scope?: string;
   canonical?: string;
   targets: AgentMdTarget[];
+  scopes: AgentMdScope[];
   sync: {
     requireGitClean: boolean;
     backupDir: string;
@@ -21,6 +23,13 @@ export type AgentMdConfig = {
     enabled: boolean;
     promptInjectionGuard: boolean;
   };
+};
+
+export type AgentMdScope = {
+  id: string;
+  root: string;
+  config?: string;
+  canonical?: string;
 };
 
 export type ManifestTarget = {
