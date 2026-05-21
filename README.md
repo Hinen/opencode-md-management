@@ -12,7 +12,7 @@ Manage AI instruction markdown files for OpenCode.
 - `doctor` reports canonical, manifest, and target file status.
 - `audit` checks the canonical markdown for duplicate headings, vague instructions, long sections, and secret-like values. Secret-like findings make the CLI exit non-zero.
 - `sync` previews canonical-to-target changes by default and writes only with `--apply`.
-- `revise` and `learn` create canonical update proposals. They do not write markdown files directly.
+- `revise` and `learn` create canonical update proposals. Through `/agent-md:revise` and `/agent-md:learn`, the OpenCode agent can inspect the canonical markdown and submit a full improved version as a reviewable proposal instead of appending raw notes. They do not write markdown files directly.
 - Proposal lifecycle commands list, show, approve, reject, and garbage-collect stored proposals. `proposal:approve` writes only the canonical file when the proposal is not stale. Target files are updated separately with `sync --apply`.
 
 ## Non-goals
@@ -110,9 +110,11 @@ npx opencode-md-management proposal:gc --older-than-days 30 --status approved,st
 }
 ```
 
-## LLM provider
+## Intelligent revision flow
 
-This release ships only `MockLlmProvider`. It makes no external network calls. `llm.enabled` selects the provider abstraction, and `llm.promptInjectionGuard` wraps user notes in HTML comment delimiters before they are concatenated to the canonical content.
+Slash commands use the active OpenCode agent as the improvement engine: the agent reads the canonical instruction markdown, integrates the requested revision or learning notes, and calls the plugin tool with the full improved canonical content. The tool stores that content as a proposal for review; it does not write markdown directly.
+
+The standalone CLI still uses `MockLlmProvider`. It makes no external network calls. `llm.enabled` selects the provider abstraction, and `llm.promptInjectionGuard` wraps user notes in HTML comment delimiters before they are concatenated to the canonical content.
 
 The guard is structural delimiter wrapping only. It does not sanitize, strip, or semantically validate note content, and `MockLlmProvider` appends the wrapped notes verbatim to the canonical document. Treat proposal `after` content as user-supplied until a real provider with output validation is added.
 
