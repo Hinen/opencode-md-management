@@ -53,4 +53,28 @@ describe("createProgram", () => {
       "agent_md_proposal_gc"
     ]));
   });
+
+  it("registers OpenCode slash commands through the config hook", async () => {
+    const hooks = await OpencodeMdManagement({} as never);
+    const config = { command: { "agent-md:doctor": { name: "agent-md:doctor", description: "custom", template: "custom" } } };
+
+    await hooks.config?.(config as never);
+
+    expect(Object.keys(config.command)).toEqual(expect.arrayContaining([
+      "agent-md:init",
+      "agent-md:doctor",
+      "agent-md:audit",
+      "agent-md:sync",
+      "agent-md:sync-apply",
+      "agent-md:revise",
+      "agent-md:learn",
+      "agent-md:proposals",
+      "agent-md:proposal-show",
+      "agent-md:proposal-approve",
+      "agent-md:proposal-reject",
+      "agent-md:proposal-gc"
+    ]));
+    expect(config.command["agent-md:doctor"].template).toBe("custom");
+    expect(config.command["agent-md:sync-apply"].template).toContain("agent_md_sync");
+  });
 });
