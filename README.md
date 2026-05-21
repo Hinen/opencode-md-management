@@ -58,6 +58,19 @@ npm run build
    /agent-md:sync-apply
    ```
 
+To improve an instruction markdown file through feedback, use the proposal flow instead of editing targets directly:
+
+```text
+/agent-md:revise Add rules for migration troubleshooting
+/agent-md:proposals pending
+/agent-md:proposal-show <id>
+/agent-md:proposal-approve <id>
+/agent-md:sync
+/agent-md:sync-apply
+```
+
+Use `/agent-md:revise` when you want the agent to rewrite or improve the current primary markdown from feedback. Use `/agent-md:learn` when you want to turn explicit notes or a notes file into a proposal. Approval updates only the primary file; target markdown files are updated later through sync.
+
 CLI users can do the same setup with:
 
 ```bash
