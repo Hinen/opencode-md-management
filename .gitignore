@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .agent-md/
+.agent-md.local/
 work-notes/
 PROJECT.md
 *.tsbuildinfo

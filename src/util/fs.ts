@@ -46,7 +46,7 @@ export function assertManagedPath(path: string, options: { canonical?: string; a
   if (options.canonical && normalizedLower === normalizeForComparison(options.canonical))
     throw new Error(`Target path must not equal canonical path: ${path}`);
 
-  if (!options.allowAgentMdInternal && (normalizedLower === ".agent-md.json" || normalizedLower.startsWith(`.agent-md${sep}`)))
+  if (!options.allowAgentMdInternal && (normalizedLower === ".agent-md.json" || normalizedLower.startsWith(`.agent-md${sep}`) || normalizedLower === ".agent-md.local.json" || normalizedLower.startsWith(`.agent-md.local${sep}`)))
     throw new Error(`Managed path must not target agent-md control files: ${path}`);
 }
 

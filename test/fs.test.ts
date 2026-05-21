@@ -20,6 +20,8 @@ describe("managed path validation", () => {
     expect(() => assertManagedPath(".")).toThrow(/file path/);
     expect(() => assertManagedPath(".agent-md/manifest.json")).toThrow(/control/);
     expect(() => assertManagedPath(".agent-md.json")).toThrow(/control/);
+    expect(() => assertManagedPath(".agent-md.local/manifest.json")).toThrow(/control/);
+    expect(() => assertManagedPath(".agent-md.local.json")).toThrow(/control/);
   });
 
   it("rejects target paths matching the canonical path", () => {
