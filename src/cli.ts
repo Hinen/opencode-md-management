@@ -10,6 +10,7 @@ import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, 
 import { runRevise } from "./commands/revise.js";
 import { runSync } from "./commands/sync.js";
 import { ProposalNotFoundError } from "./core/proposals.js";
+import type { InitModel } from "./commands/init.js";
 
 export function createProgram(): Command {
   const program = new Command();
@@ -21,8 +22,9 @@ export function createProgram(): Command {
 
   program.command("init")
     .description("Create .agent-md.json without modifying markdown files")
-    .action(async () => {
-      console.log(await runInit(process.cwd()));
+    .option("--model <model>", "primary instruction model/tool (opencode|claude|gemini|codex|copilot)")
+    .action(async (options: { model?: string }) => {
+      console.log(await runInit(process.cwd(), { model: parseInitModelOption(options.model) }));
     });
 
   program.command("doctor")
@@ -133,4 +135,14 @@ function parseIntegerOption(value: string): number {
     throw new Error(`Invalid number: ${value}`);
 
   return parsed;
+}
+
+function parseInitModelOption(value: string | undefined): InitModel | undefined {
+  if (value === undefined)
+    return undefined;
+
+  if (value === "opencode" || value === "claude" || value === "gemini" || value === "codex" || value === "copilot")
+    return value;
+
+  throw new Error(`Invalid model: ${value}`);
 }

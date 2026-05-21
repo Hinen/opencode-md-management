@@ -9,6 +9,16 @@ async function createTempRoot(): Promise<string> {
 }
 
 describe("plugin tools", () => {
+  it("executes init with an explicit primary model through a fake OpenCode context", async () => {
+    const root = await createTempRoot();
+    const hooks = await OpencodeMdManagement({} as never);
+
+    await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
+
+    expect(await hooks.tool!.agent_md_init.execute({ model: "claude" }, { worktree: root } as never)).toBe("Created .agent-md.json with canonical CLAUDE.md");
+  });
+
   it("executes revise through a fake OpenCode context", async () => {
     const root = await createTempRoot();
     const hooks = await OpencodeMdManagement({} as never);
