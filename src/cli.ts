@@ -24,10 +24,14 @@ export function createProgram(): Command {
     .description("Create .agent-md.json without modifying markdown files")
     .option("--model <model>", "primary instruction model/tool (opencode|claude|gemini|codex|copilot)")
     .option("--mirror <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
-    .action(async (options: { model?: string; mirror?: string[] }) => {
+    .option("--scope <scope>", "scope to initialize (project|local|global:claude|global:opencode|global:codex)")
+    .option("--adopt", "adopt an existing primary file without rewriting it")
+    .action(async (options: { model?: string; mirror?: string[]; scope?: string; adopt?: boolean }) => {
       console.log(await runInit(process.cwd(), {
         model: parseInitModelOption(options.model),
-        mirrors: parseInitMirrorOption(options.mirror)
+        mirrors: parseInitMirrorOption(options.mirror),
+        scope: options.scope,
+        adopt: options.adopt
       }));
     });
 
@@ -63,7 +67,8 @@ export function createProgram(): Command {
   program.command("revise")
     .description("Create a canonical revision proposal from notes")
     .requiredOption("--notes <text>", "notes for the revision proposal")
-    .action(async (options: { notes: string }) => {
+    .option("--scope <scope>", "scope for revise (MVP supports project only)")
+    .action(async (options: { notes: string; scope?: string }) => {
       console.log(await runRevise(process.cwd(), options));
     });
 
@@ -71,7 +76,8 @@ export function createProgram(): Command {
     .description("Create a canonical proposal from explicit learning notes")
     .option("--notes <text>", "learning notes")
     .option("--notes-file <path>", "file containing learning notes")
-    .action(async (options: { notes?: string; notesFile?: string }) => {
+    .option("--scope <scope>", "scope for learn (MVP supports project only)")
+    .action(async (options: { notes?: string; notesFile?: string; scope?: string }) => {
       console.log(await runLearn(process.cwd(), options));
     });
 

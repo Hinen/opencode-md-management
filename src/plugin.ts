@@ -118,7 +118,9 @@ export const OpencodeMdManagement: Plugin = async () => ({
       description: "Create .agent-md.json for managing AI instruction markdown files without editing markdown files.",
       args: {
         model: tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"]).optional().describe("Primary instruction model/tool to use as canonical."),
-        mirrors: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to enable explicitly.")
+        mirrors: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to enable explicitly."),
+        scope: tool.schema.string().optional().describe("Scope to initialize: project, local, global:claude, global:opencode, or global:codex."),
+        adopt: tool.schema.boolean().optional().describe("Adopt an existing primary file without rewriting it.")
       },
       async execute(args, context) {
         return runInit(projectRoot(context), args);
@@ -162,7 +164,8 @@ export const OpencodeMdManagement: Plugin = async () => ({
       description: "Create a canonical AI instruction markdown revision proposal without writing files.",
       args: {
         notes: tool.schema.string().describe("Notes or request to use for the revision proposal."),
-        after: tool.schema.string().optional().describe("Full improved canonical markdown content authored by the agent.")
+        after: tool.schema.string().optional().describe("Full improved canonical markdown content authored by the agent."),
+        scope: tool.schema.string().optional().describe("Scope for revise. MVP supports project only.")
       },
       async execute(args, context) {
         return runRevise(projectRoot(context), args);
@@ -174,7 +177,8 @@ export const OpencodeMdManagement: Plugin = async () => ({
       args: {
         notes: tool.schema.string().optional().describe("Learning notes to propose for canonical instructions."),
         notesFile: tool.schema.string().optional().describe("Path to a notes file to use as learning input."),
-        after: tool.schema.string().optional().describe("Full improved canonical markdown content authored by the agent.")
+        after: tool.schema.string().optional().describe("Full improved canonical markdown content authored by the agent."),
+        scope: tool.schema.string().optional().describe("Scope for learn. MVP supports project only.")
       },
       async execute(args, context) {
         return runLearn(projectRoot(context), args);
