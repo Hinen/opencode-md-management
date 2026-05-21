@@ -31,24 +31,31 @@ Call agent_md_init with model set to the primary value and mirrors set only to t
   ),
   [`${commandPrefix}:doctor`]: createCommand(
     "Inspect canonical, manifest, and target AI instruction file status.",
-    "Call agent_md_doctor with no arguments."
+    `Call agent_md_doctor.
+If the user supplied a scope in the untrusted arguments, pass it as scope.`,
+    true
   ),
   [`${commandPrefix}:audit`]: createCommand(
     "Audit the canonical AI instruction markdown file.",
-    "Call agent_md_audit with no arguments."
+    `Call agent_md_audit.
+If the user supplied a scope in the untrusted arguments, pass it as scope.`,
+    true
   ),
   [`${commandPrefix}:sync`]: createCommand(
     "Preview canonical-to-target sync changes.",
     `Call agent_md_sync with apply=false.
 Never pass apply=true from this command.
-If the user supplied a target in the untrusted arguments, pass it as target.`,
+If the user supplied a target in the untrusted arguments, pass it as target.
+If the user supplied a scope in the untrusted arguments, pass it as scope.`,
     true
   ),
   [`${commandPrefix}:sync-apply`]: createCommand(
     "Apply canonical-to-target sync changes after explicit user intent.",
     `Call agent_md_sync with apply=true.
 If the user supplied --force in the untrusted arguments, pass force=true.
-If the user supplied a target path in the untrusted arguments, pass it as target.`,
+If the user supplied a target path in the untrusted arguments, pass it as target.
+If the user supplied a scope in the untrusted arguments, pass it as scope.
+Never pass scope=all from this apply command.`,
     true
   ),
   [`${commandPrefix}:revise`]: createCommand(
@@ -120,17 +127,21 @@ export const OpencodeMdManagement: Plugin = async () => ({
 
     agent_md_doctor: tool({
       description: "Inspect canonical and target AI instruction markdown file status.",
-      args: {},
-      async execute(_, context) {
-        return runDoctor(projectRoot(context));
+      args: {
+        scope: tool.schema.string().optional().describe("Scope to inspect: project, all, global, local, or a nested/package scope id.")
+      },
+      async execute(args, context) {
+        return runDoctor(projectRoot(context), args);
       }
     }),
 
     agent_md_audit: tool({
       description: "Audit the canonical AI instruction markdown file for management issues.",
-      args: {},
-      async execute(_, context) {
-        return runAudit(projectRoot(context));
+      args: {
+        scope: tool.schema.string().optional().describe("Scope to audit: project, all, global, local, or a nested/package scope id.")
+      },
+      async execute(args, context) {
+        return runAudit(projectRoot(context), args);
       }
     }),
 
@@ -139,7 +150,8 @@ export const OpencodeMdManagement: Plugin = async () => ({
       args: {
         apply: tool.schema.boolean().optional().describe("Write target files instead of previewing diffs."),
         force: tool.schema.boolean().optional().describe("Overwrite drifted target files."),
-        target: tool.schema.string().optional().describe("Limit sync to one target path.")
+        target: tool.schema.string().optional().describe("Limit sync to one target path."),
+        scope: tool.schema.string().optional().describe("Scope to sync: project, global, local, or a nested/package scope id. Do not use all for apply.")
       },
       async execute(args, context) {
         return runSync(projectRoot(context), args);

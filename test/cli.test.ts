@@ -28,6 +28,9 @@ describe("createProgram", () => {
   it("registers proposal lifecycle command options", () => {
     const commands = createProgram().commands;
     const init = commands.find((command) => command.name() === "init");
+    const doctor = commands.find((command) => command.name() === "doctor");
+    const audit = commands.find((command) => command.name() === "audit");
+    const sync = commands.find((command) => command.name() === "sync");
     const list = commands.find((command) => command.name() === "proposal:list");
     const reject = commands.find((command) => command.name() === "proposal:reject");
     const gc = commands.find((command) => command.name() === "proposal:gc");
@@ -37,6 +40,9 @@ describe("createProgram", () => {
     expect(reject?.options.map((option) => option.long)).toContain("--reason");
     expect(gc?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--older-than-days", "--status"]));
     expect(init?.options.map((option) => option.long)).toContain("--mirror");
+    expect(doctor?.options.map((option) => option.long)).toContain("--scope");
+    expect(audit?.options.map((option) => option.long)).toContain("--scope");
+    expect(sync?.options.map((option) => option.long)).toContain("--scope");
   });
 
   it("registers OpenCode plugin tools", async () => {
@@ -57,6 +63,9 @@ describe("createProgram", () => {
     ]));
     expect(Object.keys(hooks.tool!.agent_md_init.args)).toContain("model");
     expect(Object.keys(hooks.tool!.agent_md_init.args)).toContain("mirrors");
+    expect(Object.keys(hooks.tool!.agent_md_doctor.args)).toContain("scope");
+    expect(Object.keys(hooks.tool!.agent_md_audit.args)).toContain("scope");
+    expect(Object.keys(hooks.tool!.agent_md_sync.args)).toContain("scope");
   });
 
   it("registers OpenCode slash commands through the config hook", async () => {

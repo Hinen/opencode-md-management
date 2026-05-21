@@ -33,14 +33,16 @@ export function createProgram(): Command {
 
   program.command("doctor")
     .description("Inspect configured instruction files")
-    .action(async () => {
-      console.log(await runDoctor(process.cwd()));
+    .option("--scope <scope>", "scope to inspect (project|all|global|local|nested id)")
+    .action(async (options: { scope?: string }) => {
+      console.log(await runDoctor(process.cwd(), options));
     });
 
   program.command("audit")
     .description("Audit the canonical instruction markdown file")
-    .action(async () => {
-      const report = await runAuditReport(process.cwd());
+    .option("--scope <scope>", "scope to audit (project|all|global|local|nested id)")
+    .action(async (options: { scope?: string }) => {
+      const report = await runAuditReport(process.cwd(), options);
 
       console.log(report.output);
 
@@ -53,7 +55,8 @@ export function createProgram(): Command {
     .option("--apply", "write target files")
     .option("--force", "overwrite drifted target files")
     .option("--target <path>", "sync one target")
-    .action(async (options: { apply?: boolean; force?: boolean; target?: string }) => {
+    .option("--scope <scope>", "scope to sync (project|global|local|nested id)")
+    .action(async (options: { apply?: boolean; force?: boolean; target?: string; scope?: string }) => {
       console.log(await runSync(process.cwd(), options));
     });
 
