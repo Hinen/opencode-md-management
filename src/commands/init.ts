@@ -6,6 +6,7 @@ export type InitModel = "opencode" | "claude" | "gemini" | "codex" | "copilot";
 
 export type InitCommandOptions = {
   model?: InitModel;
+  mirrors?: InitModel[];
 };
 
 const canonicalByModel: Record<InitModel, string> = {
@@ -17,7 +18,7 @@ const canonicalByModel: Record<InitModel, string> = {
 };
 
 const knownCanonicalCandidates = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".codex/AGENTS.md", ".github/copilot-instructions.md"];
-const knownTargets = knownCanonicalCandidates.filter((path) => path !== "AGENTS.md");
+const knownTargets = knownCanonicalCandidates;
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -31,9 +32,10 @@ async function exists(path: string): Promise<boolean> {
 
 export async function runInit(root: string, options: InitCommandOptions = {}): Promise<string> {
   const canonical = await getDefaultCanonical(root, options);
+  const mirrorPaths = new Set((options.mirrors ?? []).map((model) => canonicalByModel[model]));
   const targets = knownTargets
     .filter((path) => path !== canonical)
-    .map((path) => ({ path, mode: "mirror" as const, enabled: path === "CLAUDE.md" || path === "GEMINI.md" }));
+    .map((path) => ({ path, mode: "mirror" as const, enabled: mirrorPaths.has(path) }));
   const config = parseConfig({ canonical, targets });
   const output = `${JSON.stringify(config, null, 2)}\n`;
 

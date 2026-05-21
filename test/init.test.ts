@@ -38,6 +38,37 @@ describe("runInit", () => {
     expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"canonical": "GEMINI.md"');
   });
 
+  it("keeps mirror targets disabled when only the primary model is selected", async () => {
+    const root = await createTempRoot();
+
+    await runInit(root, { model: "claude" });
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+
+    expect(config.canonical).toBe("CLAUDE.md");
+    expect(config.targets).toEqual([
+      { path: "AGENTS.md", mode: "mirror", enabled: false },
+      { path: "GEMINI.md", mode: "mirror", enabled: false },
+      { path: ".codex/AGENTS.md", mode: "mirror", enabled: false },
+      { path: ".github/copilot-instructions.md", mode: "mirror", enabled: false }
+    ]);
+  });
+
+  it("enables only explicitly selected mirror targets", async () => {
+    const root = await createTempRoot();
+
+    await runInit(root, { model: "claude", mirrors: ["opencode", "gemini"] });
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+
+    expect(config.targets).toEqual([
+      { path: "AGENTS.md", mode: "mirror", enabled: true },
+      { path: "GEMINI.md", mode: "mirror", enabled: true },
+      { path: ".codex/AGENTS.md", mode: "mirror", enabled: false },
+      { path: ".github/copilot-instructions.md", mode: "mirror", enabled: false }
+    ]);
+  });
+
   it("rejects ambiguous existing instruction files with different content", async () => {
     const root = await createTempRoot();
 
