@@ -36,6 +36,7 @@ describe("createProgram", () => {
     expect(list?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--status", "--json"]));
     expect(reject?.options.map((option) => option.long)).toContain("--reason");
     expect(gc?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--older-than-days", "--status"]));
+    expect(init?.options.map((option) => option.long)).toContain("--mirror");
   });
 
   it("registers OpenCode plugin tools", async () => {
@@ -55,6 +56,7 @@ describe("createProgram", () => {
       "agent_md_proposal_gc"
     ]));
     expect(Object.keys(hooks.tool!.agent_md_init.args)).toContain("model");
+    expect(Object.keys(hooks.tool!.agent_md_init.args)).toContain("mirrors");
   });
 
   it("registers OpenCode slash commands through the config hook", async () => {
@@ -78,6 +80,7 @@ describe("createProgram", () => {
       "agent-md:proposal-gc"
     ]));
     expect(config.command["agent-md:init"].template).toContain("show this exact supported model list");
+    expect(config.command["agent-md:init"].template).toContain("ask which mirror target models/tools to enable");
     expect(config.command["agent-md:init"].template).toContain("opencode: AGENTS.md");
     expect(config.command["agent-md:init"].template).toContain("claude: CLAUDE.md");
     expect(config.command["agent-md:doctor"].template).toBe("custom");

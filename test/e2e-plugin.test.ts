@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -16,7 +16,14 @@ describe("plugin tools", () => {
     await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
     await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
 
-    expect(await hooks.tool!.agent_md_init.execute({ model: "claude" }, { worktree: root } as never)).toBe("Created .agent-md.json with canonical CLAUDE.md");
+    expect(await hooks.tool!.agent_md_init.execute({ model: "claude", mirrors: ["gemini"] }, { worktree: root } as never)).toBe("Created .agent-md.json with canonical CLAUDE.md");
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+
+    expect(config.targets).toEqual(expect.arrayContaining([
+      { path: "AGENTS.md", mode: "mirror", enabled: false },
+      { path: "GEMINI.md", mode: "mirror", enabled: true }
+    ]));
   });
 
   it("executes revise through a fake OpenCode context", async () => {

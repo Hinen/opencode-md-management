@@ -25,7 +25,8 @@ const pluginCommands: Record<string, OpenCodeCommand> = {
 - gemini: GEMINI.md
 - codex: .codex/AGENTS.md
 - copilot: .github/copilot-instructions.md
-Call agent_md_init with model set to that value.`,
+Then ask which mirror target models/tools to enable from the remaining list. The user may choose none.
+Call agent_md_init with model set to the primary value and mirrors set only to the explicitly selected mirror target values. Do not include the primary model in mirrors.`,
     true
   ),
   [`${commandPrefix}:doctor`]: createCommand(
@@ -109,7 +110,8 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_init: tool({
       description: "Create .agent-md.json for managing AI instruction markdown files without editing markdown files.",
       args: {
-        model: tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"]).optional().describe("Primary instruction model/tool to use as canonical.")
+        model: tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"]).optional().describe("Primary instruction model/tool to use as canonical."),
+        mirrors: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to enable explicitly.")
       },
       async execute(args, context) {
         return runInit(context.worktree, args);

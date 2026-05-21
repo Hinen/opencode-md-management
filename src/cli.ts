@@ -23,8 +23,12 @@ export function createProgram(): Command {
   program.command("init")
     .description("Create .agent-md.json without modifying markdown files")
     .option("--model <model>", "primary instruction model/tool (opencode|claude|gemini|codex|copilot)")
-    .action(async (options: { model?: string }) => {
-      console.log(await runInit(process.cwd(), { model: parseInitModelOption(options.model) }));
+    .option("--mirror <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
+    .action(async (options: { model?: string; mirror?: string[] }) => {
+      console.log(await runInit(process.cwd(), {
+        model: parseInitModelOption(options.model),
+        mirrors: parseInitMirrorOption(options.mirror)
+      }));
     });
 
   program.command("doctor")
@@ -145,4 +149,20 @@ function parseInitModelOption(value: string | undefined): InitModel | undefined 
     return value;
 
   throw new Error(`Invalid model: ${value}`);
+}
+
+function parseInitMirrorOption(value: string[] | undefined): InitModel[] | undefined {
+  if (value === undefined)
+    return undefined;
+
+  return value.map((item) => parseRequiredInitModelOption(item));
+}
+
+function parseRequiredInitModelOption(value: string): InitModel {
+  const model = parseInitModelOption(value);
+
+  if (model === undefined)
+    throw new Error(`Invalid model: ${value}`);
+
+  return model;
 }
