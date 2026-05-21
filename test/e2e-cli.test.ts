@@ -94,6 +94,16 @@ describe("CLI workflow handlers", () => {
     await expect(runSync(root, { target: "NOPE.md" })).rejects.toThrow(/Unknown target/);
   });
 
+  it("rejects sync across multiple scopes", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
+    await writeFile(join(root, ".claude.local.md"), "# Local\n", "utf8");
+    await runInit(root);
+
+    await expect(runSync(root, { scope: "all" })).rejects.toThrow(/single scope/);
+  });
+
   it("sync only sees explicitly enabled init mirrors", async () => {
     const root = await createTempRoot();
 
