@@ -30,6 +30,44 @@ npm install
 npm run build
 ```
 
+## Quick Start
+
+1. Add the plugin to your OpenCode config:
+
+   ```json
+   {
+     "plugin": ["opencode-md-management"]
+   }
+   ```
+
+2. Run `/agent-md:init` and choose your primary instruction file. For example, choose `claude` if `CLAUDE.md` should be the source of truth.
+
+3. Choose mirror targets only if you want this tool to sync the primary file into other instruction files. Choose none to manage only the primary file.
+
+4. Check the setup:
+
+   ```text
+   /agent-md:doctor
+   /agent-md:audit
+   ```
+
+5. Preview and apply sync when you want targets updated:
+
+   ```text
+   /agent-md:sync
+   /agent-md:sync-apply
+   ```
+
+CLI users can do the same setup with:
+
+```bash
+npx opencode-md-management init --model claude --mirror opencode gemini
+npx opencode-md-management doctor
+npx opencode-md-management audit
+npx opencode-md-management sync
+npx opencode-md-management sync --apply
+```
+
 ## Usage
 
 Inside OpenCode, install the package as a plugin and use the `/agent-md:*` slash commands when managing instruction files.
