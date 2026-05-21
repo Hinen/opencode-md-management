@@ -95,4 +95,27 @@ describe("runInit", () => {
 
     await expect(runInit(root)).rejects.toThrow(/\.agent-md\.json already exists/);
   });
+
+  it("initializes local scope separately from project config", async () => {
+    const root = await createTempRoot();
+
+    expect(await runInit(root, { scope: "local" })).toBe("Created local config with primary .claude.local.md");
+    expect(await readFile(join(root, ".agent-md.local.json"), "utf8")).toContain('"id": "local"');
+  });
+
+  it("initializes explicit global tool scopes under their tool roots", async () => {
+    const root = await createTempRoot();
+    const previousHome = process.env.AGENT_MD_HOME;
+    process.env.AGENT_MD_HOME = join(root, "home");
+
+    try {
+      expect(await runInit(root, { scope: "global:claude" })).toBe("Created global:claude config with primary CLAUDE.md");
+      expect(await readFile(join(root, "home", "claude", ".agent-md.json"), "utf8")).toContain('"id": "global:claude"');
+    } finally {
+      if (previousHome === undefined)
+        delete process.env.AGENT_MD_HOME;
+      else
+        process.env.AGENT_MD_HOME = previousHome;
+    }
+  });
 });
