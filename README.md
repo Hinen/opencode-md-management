@@ -6,8 +6,8 @@ Manage AI instruction markdown files for OpenCode with explicit project and scop
 
 ## What it does
 
-- Registers OpenCode slash commands: `/omm:init`, `/omm:doctor`, `/omm:audit`, `/omm:sync`, `/omm:sync-apply`, `/omm:revise`, `/omm:learn`, `/omm:proposals`, `/omm:proposal-show`, `/omm:proposal-approve`, `/omm:proposal-reject`, and `/omm:proposal-gc`.
-- Provides matching plugin tools: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_revise`, `agent_md_learn`, and `agent_md_proposal_*`.
+- Registers OpenCode slash commands: `/omm:init`, `/omm:doctor`, `/omm:audit`, `/omm:sync`, `/omm:sync-apply`, `/omm:mirrors`, `/omm:revise`, `/omm:learn`, `/omm:proposals`, `/omm:proposal-show`, `/omm:proposal-approve`, `/omm:proposal-reject`, and `/omm:proposal-gc`.
+- Provides matching plugin tools: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_mirrors`, `agent_md_revise`, `agent_md_learn`, and `agent_md_proposal_*`.
 - Keeps writes single-scope. `--scope all` is read-only and write commands reject it.
 - Treats `.claude.local.md` as a local scope, never as a project mirror target.
 - Treats `AGENTS.override.md` as read-only inventory/audit information, not as a sync target.
@@ -35,6 +35,7 @@ OpenCode plugin config:
 /omm:audit
 /omm:sync
 /omm:sync-apply
+/omm:mirrors --enable opencode
 ```
 
 CLI equivalent:
@@ -45,6 +46,7 @@ npx opencode-md-management doctor
 npx opencode-md-management audit
 npx opencode-md-management sync
 npx opencode-md-management sync --apply
+npx opencode-md-management mirrors --enable opencode
 ```
 
 ## Scopes
@@ -70,6 +72,7 @@ npx opencode-md-management doctor --scope all
 npx opencode-md-management audit --scope all
 npx opencode-md-management sync --scope project
 npx opencode-md-management sync --apply --scope project
+npx opencode-md-management mirrors --enable opencode --disable gemini
 npx opencode-md-management revise --notes "Add migration troubleshooting rules" --scope project
 npx opencode-md-management learn --notes-file ./session-notes.md --scope project
 npx opencode-md-management proposal:list --status pending
