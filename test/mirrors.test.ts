@@ -32,6 +32,6 @@ describe("runMirrors", () => {
     await runInit(root, { model: "codex" });
 
     await expect(runMirrors(root, { enable: ["codex"] })).rejects.toThrow(/primary/);
-    await expect(runMirrors(root, { enable: ["opencode"], scope: "local" })).rejects.toThrow(/project-only/);
+    await expect(runMirrors(root, { enable: ["opencode"], scope: "local" })).rejects.toThrow(/project instruction files/);
   });
 });

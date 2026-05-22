@@ -11,14 +11,14 @@ export type MirrorsCommandOptions = {
 
 export async function runMirrors(root: string, options: MirrorsCommandOptions = {}): Promise<string> {
   if (options.scope && options.scope !== "project")
-    throw new Error("mirrors is project-only in MVP; use --scope project or omit --scope.");
+    throw new Error("Mirror target changes currently apply only to project instruction files. Omit --scope or use --scope project.");
 
   const config = await loadConfig(root);
   const enablePaths = modelPaths(options.enable ?? []);
   const disablePaths = modelPaths(options.disable ?? []);
 
   if (enablePaths.has(config.primary) || disablePaths.has(config.primary))
-    throw new Error(`Mirror target must not be the primary file: ${config.primary}`);
+    throw new Error(`Cannot mirror the primary instruction file (${config.primary}). Choose a different target.`);
 
   const knownTargetPaths = new Set(Object.values(canonicalByModel).filter((path) => path !== config.primary));
   const targetsByPath = new Map(config.targets.map((target) => [target.path, target]));
@@ -31,10 +31,10 @@ export async function runMirrors(root: string, options: MirrorsCommandOptions = 
   let changed = false;
 
   for (const path of enablePaths)
-    changed = setTargetEnabled(targetsByPath, path, true) || changed;
+    changed = setTargetEnabled(targetsByPath, path, true, knownTargetPaths) || changed;
 
   for (const path of disablePaths)
-    changed = setTargetEnabled(targetsByPath, path, false) || changed;
+    changed = setTargetEnabled(targetsByPath, path, false, knownTargetPaths) || changed;
 
   const nextConfig = parseConfig({
     ...config,
@@ -53,11 +53,11 @@ function modelPaths(models: InitModel[]): Set<string> {
   return new Set(models.map((model) => canonicalByModel[model]));
 }
 
-function setTargetEnabled(targetsByPath: Map<string, { path: string; mode: "mirror"; enabled: boolean }>, path: string, enabled: boolean): boolean {
+function setTargetEnabled(targetsByPath: Map<string, { path: string; mode: "mirror"; enabled: boolean }>, path: string, enabled: boolean, knownTargetPaths: Set<string>): boolean {
   const target = targetsByPath.get(path);
 
   if (!target)
-    throw new Error(`Unknown mirror target: ${path}`);
+    throw new Error(`Unknown mirror target: ${path}. Available targets: ${[...knownTargetPaths].join(", ")}.`);
 
   if (target.enabled === enabled)
     return false;
