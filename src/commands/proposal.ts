@@ -20,10 +20,10 @@ export async function runProposalApprove(root: string, selector?: string): Promi
   const config = await loadConfig(root);
   const proposal = await approveProposal(root, await resolvePendingProposalId(root, selector), config);
 
-  if (proposal.syncedTargets === 0)
+  if (proposal.syncedAliases === 0)
     return "Approved instruction update";
 
-  return `Approved instruction update\nSynced ${proposal.syncedTargets} target(s)`;
+  return `Approved instruction update\nRepaired ${proposal.syncedAliases} alias(es)`;
 }
 
 export async function runProposalList(root: string, options: { status?: string; json?: boolean } = {}): Promise<string> {

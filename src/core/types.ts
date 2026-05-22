@@ -1,5 +1,3 @@
-export type TargetMode = "mirror" | "symlink";
-
 export type ScopeKind = "project" | "local" | "global" | "nested";
 
 export type ScopeTool = "opencode" | "claude" | "codex" | "gemini" | "copilot" | null;
@@ -10,21 +8,14 @@ export type AgentMdScopeIdentity = {
   tool: ScopeTool;
 };
 
-export type AgentMdTarget = {
-  path: string;
-  mode: TargetMode;
-  enabled: boolean;
-};
-
 export type AgentMdConfig = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   scope: AgentMdScopeIdentity;
   primary: string;
   canonical?: string;
-  targets: AgentMdTarget[];
+  aliases: string[];
   sync: {
     requireGitClean: boolean;
-    backupDir: string;
   };
   audit: {
     maxSectionLines: number;
@@ -38,14 +29,8 @@ export type AgentMdConfig = {
   };
 };
 
-export type ManifestTarget = {
-  path: string;
-  mode: TargetMode;
-  lastSyncedHash: string;
-};
-
 export type AgentMdManifest = {
-  version: 2;
+  version: 3;
   scope: AgentMdScopeIdentity;
   root: string;
   configPath: string;
@@ -58,7 +43,7 @@ export type AgentMdManifest = {
     path: string;
     hash: string;
   };
-  targets: ManifestTarget[];
+  aliases: string[];
   adoptedAt: string;
 };
 

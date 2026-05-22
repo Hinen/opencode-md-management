@@ -28,7 +28,7 @@ export async function runAuditReport(root: string, options: AuditCommandOptions 
 }
 
 async function auditScope(scope: ScopeContext): Promise<AuditReport> {
-  const config = scope.config ?? parseConfig({ scope: { id: scope.id, kind: scope.kind, tool: scope.tool }, primary: scope.primary, targets: [] });
+  const config = scope.config ?? parseConfig({ scope: { id: scope.id, kind: scope.kind, tool: scope.tool }, primary: scope.primary, aliases: [] });
   let canonical;
 
   try {
@@ -62,13 +62,13 @@ async function auditScope(scope: ScopeContext): Promise<AuditReport> {
 }
 
 async function targetStatusOutput(scope: ScopeContext, config: ReturnType<typeof parseConfig>): Promise<string[]> {
-  if (!scope.adopted || config.targets.length === 0)
+  if (!scope.adopted || config.aliases.length === 0)
     return [];
 
   const plan = await createSyncPlan(scope.root, config);
 
-  if (plan.targets.length === 0)
+  if (plan.aliases.length === 0)
     return [];
 
-  return ["Targets:", ...plan.targets.map((target) => `${target.path}: ${target.status}`)];
+  return ["Aliases:", ...plan.aliases.map((alias) => `${alias.path}: ${alias.status}`)];
 }

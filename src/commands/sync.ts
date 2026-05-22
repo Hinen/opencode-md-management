@@ -13,29 +13,31 @@ export async function runSync(root: string, options: SyncCommandOptions = {}): P
   const scopedConfig = scope.config!;
   const plan = await createSyncPlan(scope.root, scopedConfig);
 
-  if (options.target && !plan.targets.some((target) => target.path === options.target)) {
-    const available = plan.targets.map((target) => target.path).join(", ");
+  if (options.target && !plan.aliases.some((alias) => alias.path === options.target)) {
+    const available = plan.aliases.map((alias) => alias.path).join(", ");
 
     throw new Error(available.length === 0
-      ? `Unknown sync target: ${options.target}. No mirror targets are enabled yet.`
-      : `Unknown sync target: ${options.target}. Available targets: ${available}.`);
+      ? `Unknown alias: ${options.target}. No aliases are configured yet.`
+      : `Unknown alias: ${options.target}. Available aliases: ${available}.`);
   }
 
-  const targets = options.target ? plan.targets.filter((target) => target.path === options.target) : plan.targets;
-  const scopedPlan = { ...plan, targets };
+  const aliases = options.target ? plan.aliases.filter((alias) => alias.path === options.target) : plan.aliases;
+  const scopedPlan = { ...plan, aliases };
 
-  if (scopedPlan.targets.every((target) => target.status === "ok"))
+  if (scopedPlan.aliases.every((alias) => alias.status === "ok"))
     return "No changes";
 
   if (!options.apply) {
-    const diffs = scopedPlan.targets
-      .filter((target) => target.diff.length > 0)
-      .map((target) => target.diff);
+    const diffs = scopedPlan.aliases
+      .filter((alias) => alias.status !== "ok")
+      .map((alias) => alias.diff);
 
     return diffs.length === 0 ? "No changes" : diffs.join("\n");
   }
 
   await applySyncPlan(scope.root, scopedConfig, scopedPlan, { force: options.force });
 
-  return `Synced ${scopedPlan.targets.length} target(s)`;
+  const repaired = scopedPlan.aliases.filter((alias) => alias.status !== "ok").length;
+
+  return `Repaired ${repaired} alias(es)`;
 }

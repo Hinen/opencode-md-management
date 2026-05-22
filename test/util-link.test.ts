@@ -90,6 +90,6 @@ describe("symlink utilities", () => {
     await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
 
     await expect(ensureSymlink(root, "AGENTS.md", "CLAUDE.md")).rejects.toThrow(/Developer Mode/);
-    await expect(ensureSymlink(root, "AGENTS.md", "CLAUDE.md")).rejects.toThrow(/omm mirrors --mode mirror/);
+    await expect(ensureSymlink(root, "AGENTS.md", "CLAUDE.md")).rejects.toThrow(/requires symlink support/);
   });
 });

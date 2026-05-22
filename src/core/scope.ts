@@ -30,7 +30,7 @@ export function configForScope(config: AgentMdConfig, scope: InstructionScope): 
     scope: { id: scope.id, kind: scope.kind, tool: scope.kind === "global" ? "claude" : null },
     primary: scope.canonical,
     canonical: scope.canonical,
-    targets: []
+    aliases: []
   };
 }
 

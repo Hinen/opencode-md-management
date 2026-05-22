@@ -31,7 +31,7 @@ const proposalSchema = z.object({
 });
 
 export type Proposal = z.infer<typeof proposalSchema>;
-export type ApprovedProposal = Proposal & { syncedTargets: number };
+export type ApprovedProposal = Proposal & { syncedAliases: number };
 
 export class ProposalNotFoundError extends Error {
   readonly id: string;
@@ -155,7 +155,7 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
   const proposal = await showProposal(root, id);
 
   if (proposal.status === "approved")
-    return { ...proposal, syncedTargets: 0 };
+    return { ...proposal, syncedAliases: 0 };
 
   if (proposal.status !== "pending")
     throw new Error(`Cannot approve this instruction update because it is already ${proposal.status}.`);
@@ -189,20 +189,19 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
     hash: hashContent(proposal.after)
   };
   const syncPlan = await createSyncPlan(root, config, nextCanonical);
-  const changedTargets = syncPlan.targets.filter((target) => target.status !== "ok");
-  const conflict = changedTargets.find((target) => target.status === "conflict");
+  const changedAliases = syncPlan.aliases.filter((alias) => alias.status !== "ok");
+  const conflict = changedAliases.find((alias) => alias.status === "conflict");
 
   if (conflict)
-    throw new Error(`${conflict.path} has local edits since the last sync. Review those edits, or run sync --apply --force to overwrite the mirror.`);
+    throw new Error(`${conflict.path} has local drift. Review it, or run sync --apply --force to overwrite the alias.`);
 
   await writeCanonical(canonical.path, proposal.after, {
     root,
-    requireGitClean: config.sync.requireGitClean,
-    backupDir: config.sync.backupDir
+    requireGitClean: config.sync.requireGitClean
   });
 
-  if (changedTargets.length > 0)
-    await applySyncPlan(root, config, { ...syncPlan, targets: changedTargets }, { skipGitClean: true });
+  if (changedAliases.length > 0)
+    await applySyncPlan(root, config, { ...syncPlan, aliases: changedAliases }, { skipGitClean: true });
 
   const approved = parseProposal({
     ...proposal,
@@ -213,7 +212,7 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
 
   await writeProposal(root, approved);
 
-  return { ...approved, syncedTargets: changedTargets.length };
+  return { ...approved, syncedAliases: changedAliases.length };
 }
 
 export async function rejectProposal(root: string, id: string, options: RejectProposalOptions = {}): Promise<Proposal> {

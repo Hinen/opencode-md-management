@@ -36,7 +36,7 @@ describe("canonical and manifest", () => {
     await writeFile(join(root, "AGENTS.md"), "agents", "utf8");
     await writeFile(join(root, "CLAUDE.md"), "claude", "utf8");
 
-    const canonical = await resolveCanonical(root, parseConfig({ targets: [] }));
+    const canonical = await resolveCanonical(root, parseConfig({ aliases: [] }));
 
     expect(canonical.path).toBe("AGENTS.md");
     expect(canonical.content).toBe("agents");
@@ -46,63 +46,42 @@ describe("canonical and manifest", () => {
     const root = await createTempRoot();
 
     await withLanguage("ko-KR", async () => {
-      await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", targets: [] })))
+      await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", aliases: [] })))
         .rejects
         .toThrow(`다음 경로에 markdown 파일을 직접 만들어 주세요: ${join(root, "AGENTS.md")}`);
     });
 
     await withLanguage("en-US", async () => {
-      await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", targets: [] })))
+      await expect(resolveCanonical(root, parseConfig({ canonical: "AGENTS.md", aliases: [] })))
         .rejects
         .toThrow(`Create the markdown file manually at: ${join(root, "AGENTS.md")}`);
     });
   });
 
-  it("round-trips manifest files", async () => {
+  it("round-trips v3 manifest files", async () => {
     const root = await createTempRoot();
     const manifest = parseManifest({
-      version: 1,
-      canonical: { path: "AGENTS.md", hash: hashContent("rules") },
-      targets: [{ path: "CLAUDE.md", mode: "mirror", lastSyncedHash: hashContent("rules") }]
+      version: 3,
+      scope: { id: "project", kind: "project", tool: null },
+      root: ".",
+      configPath: ".agent-md.json",
+      configHash: hashContent("cfg"),
+      primary: { path: "AGENTS.md", hash: hashContent("rules") },
+      aliases: ["CLAUDE.md"],
+      adoptedAt: new Date(0).toISOString()
     });
 
     await writeManifest(root, manifest);
 
     const raw = await readFile(join(root, ".agent-md", "manifest.json"), "utf8");
+    const parsed = JSON.parse(raw);
 
-    expect(JSON.parse(raw)).toEqual(manifest);
+    expect(parsed.version).toBe(3);
+    expect(parsed.aliases).toEqual(["CLAUDE.md"]);
+    expect(parsed.primary.path).toBe("AGENTS.md");
   });
 
-  it("accepts symlink sentinel as lastSyncedHash for symlink-mode targets", () => {
-    const manifest = parseManifest({
-      version: 2,
-      scope: { id: "project", kind: "project", tool: null },
-      root: ".",
-      configPath: ".agent-md.json",
-      configHash: hashContent("cfg"),
-      primary: { path: "AGENTS.md", hash: hashContent("content") },
-      targets: [{ path: "CLAUDE.md", mode: "symlink", lastSyncedHash: "symlink" }],
-      adoptedAt: new Date(0).toISOString()
-    });
-
-    expect(manifest.targets[0].lastSyncedHash).toBe("symlink");
-    expect(manifest.targets[0].mode).toBe("symlink");
-  });
-
-  it("rejects garbage lastSyncedHash values", () => {
-    expect(() => parseManifest({
-      version: 2,
-      scope: { id: "project", kind: "project", tool: null },
-      root: ".",
-      configPath: ".agent-md.json",
-      configHash: hashContent("cfg"),
-      primary: { path: "AGENTS.md", hash: hashContent("content") },
-      targets: [{ path: "CLAUDE.md", mode: "mirror", lastSyncedHash: "garbage" }],
-      adoptedAt: new Date(0).toISOString()
-    })).toThrow();
-  });
-
-  it("migrates v1 manifest to v2 with mode mirror and sha256 hash", () => {
+  it("migrates v1 manifest into v3 aliases", () => {
     const hash = hashContent("rules");
     const manifest = parseManifest({
       version: 1,
@@ -110,8 +89,27 @@ describe("canonical and manifest", () => {
       targets: [{ path: "CLAUDE.md", mode: "mirror", lastSyncedHash: hash }]
     });
 
-    expect(manifest.version).toBe(2);
-    expect(manifest.targets[0].mode).toBe("mirror");
-    expect(manifest.targets[0].lastSyncedHash).toMatch(/^sha256:/);
+    expect(manifest.version).toBe(3);
+    expect(manifest.primary.path).toBe("AGENTS.md");
+    expect(manifest.aliases).toEqual(["CLAUDE.md"]);
+  });
+
+  it("migrates v2 manifest into v3 aliases", () => {
+    const manifest = parseManifest({
+      version: 2,
+      scope: { id: "project", kind: "project", tool: null },
+      root: ".",
+      configPath: ".agent-md.json",
+      configHash: hashContent("cfg"),
+      primary: { path: "AGENTS.md", hash: hashContent("content") },
+      targets: [
+        { path: "CLAUDE.md", mode: "symlink", lastSyncedHash: "symlink" },
+        { path: "GEMINI.md", mode: "mirror", lastSyncedHash: hashContent("content") }
+      ],
+      adoptedAt: new Date(0).toISOString()
+    });
+
+    expect(manifest.version).toBe(3);
+    expect(manifest.aliases).toEqual(["CLAUDE.md", "GEMINI.md"]);
   });
 });

@@ -16,14 +16,14 @@ describe("plugin tools", () => {
     await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
     await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
 
-    expect(await hooks.tool!.agent_md_init.execute({ model: "claude", mirrors: ["gemini"] }, { worktree: root } as never)).toBe("Created .agent-md.json with canonical CLAUDE.md");
+    const output = await hooks.tool!.agent_md_init.execute({ model: "claude" }, { worktree: root } as never);
+
+    expect(output).toContain("Created .agent-md.json with primary CLAUDE.md");
 
     const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
 
-    expect(config.targets).toEqual(expect.arrayContaining([
-      { path: "AGENTS.md", mode: "mirror", enabled: false },
-      { path: "GEMINI.md", mode: "mirror", enabled: true }
-    ]));
+    expect(config.primary).toBe("CLAUDE.md");
+    expect(config.aliases).toEqual([]);
   });
 
   it("uses the OpenCode project directory instead of the worktree root", async () => {
@@ -31,16 +31,17 @@ describe("plugin tools", () => {
     const hooks = await OpencodeMdManagement({} as never);
     const context = { directory: root, worktree: "/" } as never;
 
-    expect(await hooks.tool!.agent_md_init.execute({ model: "opencode", mirrors: [] }, context)).toBe("Created .agent-md.json with canonical AGENTS.md");
+    const output = await hooks.tool!.agent_md_init.execute({ model: "opencode", aliases: [] }, context);
 
-    expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"canonical": "AGENTS.md"');
+    expect(output).toContain("Created .agent-md.json with primary AGENTS.md");
+    expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"primary": "AGENTS.md"');
   });
 
   it("executes revise through a fake OpenCode context", async () => {
     const root = await createTempRoot();
     const hooks = await OpencodeMdManagement({} as never);
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
 
     const output = await hooks.tool!.agent_md_revise.execute({ notes: "Prefer small diffs" }, { worktree: root } as never);
@@ -53,7 +54,7 @@ describe("plugin tools", () => {
     const root = await createTempRoot();
     const hooks = await OpencodeMdManagement({} as never);
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
 
     const output = await hooks.tool!.agent_md_revise.execute({
@@ -69,7 +70,7 @@ describe("plugin tools", () => {
     const root = await createTempRoot();
     const hooks = await OpencodeMdManagement({} as never);
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await writeFile(join(root, "AGENTS.md"), "# Rules\n- Maybe run tests later.\n", "utf8");
 
     const output = await hooks.tool!.agent_md_review.execute({}, { worktree: root } as never);
@@ -83,7 +84,7 @@ describe("plugin tools", () => {
     const hooks = await OpencodeMdManagement({} as never);
     const context = { worktree: root } as never;
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
 
     await hooks.tool!.agent_md_revise.execute({ notes: "Prefer small diffs" }, context);

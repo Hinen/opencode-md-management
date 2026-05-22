@@ -2,12 +2,11 @@
 
 import { Command } from "commander";
 import { fileURLToPath } from "node:url";
+import { runAliases } from "./commands/aliases.js";
 import { runAuditReport } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
-import { runLink } from "./commands/link.js";
-import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
 import { runReview } from "./commands/review.js";
@@ -24,15 +23,15 @@ export function createProgram(): Command {
     .version("0.1.0");
 
   program.command("init")
-    .description("Create .agent-md.json and auto-adopt existing instruction files")
+    .description("Create .agent-md.json, ensure the primary instruction file exists, and materialize symlink aliases")
     .option("--model <model>", "primary instruction model/tool (opencode|claude|gemini|codex|copilot)")
-    .option("--mirror <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
+    .option("--alias <model...>", "model whose file to create as a symlink alias to the primary (repeatable)")
     .option("--scope <scope>", "scope to initialize (project|local|global:claude|global:opencode|global:codex)")
     .option("--adopt", "adopt an existing primary file without rewriting it")
-    .action(async (options: { model?: string; mirror?: string[]; scope?: string; adopt?: boolean }) => {
+    .action(async (options: { model?: string; alias?: string[]; scope?: string; adopt?: boolean }) => {
       console.log(await runInit(process.cwd(), {
         model: parseInitModelOption(options.model),
-        mirrors: parseInitMirrorOption(options.mirror),
+        aliases: parseAliasModelsOption(options.alias),
         scope: options.scope,
         adopt: options.adopt
       }));
@@ -58,41 +57,24 @@ export function createProgram(): Command {
     });
 
   program.command("sync")
-    .description("Preview or apply canonical-to-target sync")
-    .option("--apply", "write target files")
-    .option("--force", "overwrite drifted target files")
-    .option("--target <path>", "sync one target")
+    .description("Repair drifted symlink aliases against the canonical instruction file")
+    .option("--apply", "repair drifted aliases")
+    .option("--force", "overwrite alias paths even when they are regular files")
+    .option("--target <path>", "limit repair to one alias")
     .option("--scope <scope>", "scope to sync (project|global|local|nested id)")
     .action(async (options: { apply?: boolean; force?: boolean; target?: string; scope?: string }) => {
       console.log(await runSync(process.cwd(), options));
     });
 
-  program.command("mirrors")
-    .description("Enable or disable project mirror targets")
-    .option("--enable <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
-    .option("--disable <model...>", "mirror target model/tool to disable (opencode|claude|gemini|codex|copilot)")
-    .option("--mode <mode>", "mode for newly-enabled targets (mirror|symlink)")
-    .option("--scope <scope>", "scope for mirrors (MVP supports project only)")
-    .action(async (options: { enable?: string[]; disable?: string[]; mode?: string; scope?: string }) => {
-      console.log(await runMirrors(process.cwd(), {
-        enable: parseInitMirrorOption(options.enable),
-        disable: parseInitMirrorOption(options.disable),
-        mode: parseModeOption(options.mode),
-        scope: options.scope
-      }));
-    });
-
-  program.command("link")
-    .description("Create symlink aliases from the canonical instruction file to a model file")
-    .requiredOption("--model <model>", "model whose file to alias (opencode|claude|gemini|codex|copilot)")
-    .option("--no-apply", "update config but do not materialize the symlink(s)")
-    .option("--no-hierarchical", "skip nested AGENTS.md files (default: hierarchical for claude/gemini)")
-    .option("--scope <scope>", "scope to link (MVP supports project only)")
-    .action(async (options: { model: string; apply?: boolean; hierarchical?: boolean; scope?: string }) => {
-      console.log(await runLink(process.cwd(), {
-        model: parseRequiredInitModelOption(options.model),
-        apply: options.apply,
-        hierarchical: options.hierarchical,
+  program.command("aliases")
+    .description("Add or remove symlink aliases for the primary instruction file")
+    .option("--add <model...>", "model whose file to add as an alias (opencode|claude|gemini|codex|copilot)")
+    .option("--remove <model...>", "model whose alias to remove (opencode|claude|gemini|codex|copilot)")
+    .option("--scope <scope>", "scope for aliases (MVP supports project only)")
+    .action(async (options: { add?: string[]; remove?: string[]; scope?: string }) => {
+      console.log(await runAliases(process.cwd(), {
+        add: parseAliasModelsOption(options.add),
+        remove: parseAliasModelsOption(options.remove),
         scope: options.scope
       }));
     });
@@ -138,7 +120,7 @@ export function createProgram(): Command {
     });
 
   program.command("proposal:approve")
-    .description("Approve a stored proposal and sync enabled mirror targets")
+    .description("Approve a stored proposal; repairs symlink aliases if any drifted")
     .argument("[selection]", "instruction update number from proposal:list, or proposal id; uses the only pending update if omitted")
     .action(async (selection: string | undefined) => {
       console.log(await runProposalApprove(process.cwd(), selection));
@@ -201,7 +183,7 @@ function parseInitModelOption(value: string | undefined): InitModel | undefined 
   throw new Error(`Invalid model: ${value}`);
 }
 
-function parseInitMirrorOption(value: string[] | undefined): InitModel[] | undefined {
+function parseAliasModelsOption(value: string[] | undefined): InitModel[] | undefined {
   if (value === undefined)
     return undefined;
 
@@ -215,14 +197,4 @@ function parseRequiredInitModelOption(value: string): InitModel {
     throw new Error(`Invalid model: ${value}`);
 
   return model;
-}
-
-export function parseModeOption(value: string | undefined): "mirror" | "symlink" | undefined {
-  if (value === undefined)
-    return undefined;
-
-  if (value === "mirror" || value === "symlink")
-    return value;
-
-  throw new Error(`Invalid mode: ${value}. Valid modes: mirror, symlink.`);
 }
