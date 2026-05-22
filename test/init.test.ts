@@ -93,7 +93,7 @@ describe("runInit", () => {
     await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
     await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
 
-    await expect(runInit(root)).rejects.toThrow(/Choose the primary model explicitly/);
+    await expect(runInit(root)).rejects.toThrow(/Choose which instruction file should be primary/);
   });
 
   it("allows explicit model when existing instruction files differ", async () => {

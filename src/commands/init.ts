@@ -126,7 +126,7 @@ function parseScopeOption(scope: string | undefined): AgentMdScopeIdentity {
       return { id: scope, kind: "global", tool };
   }
 
-  throw new Error(`Invalid init scope: ${scope}`);
+  throw new Error(`Invalid init scope: ${scope}. Valid scopes: project, local, global:opencode, global:claude, global:codex.`);
 }
 
 async function getDefaultCanonical(root: string, options: InitCommandOptions): Promise<string> {
@@ -158,7 +158,7 @@ async function assertNoConflictingExistingInstructions(root: string): Promise<vo
 
   throw new Error([
     "Multiple existing instruction files have different content.",
-    `Choose the primary model explicitly with --model <${Object.keys(canonicalByModel).join("|")}>.`,
+    `Choose which instruction file should be primary with --model <${Object.keys(canonicalByModel).join("|")}>.`,
     `Existing files: ${existing.map((item) => item.path).join(", ")}`
   ].join(" "));
 }
