@@ -9,6 +9,7 @@ import { runLearn } from "./commands/learn.js";
 import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
+import { runReview } from "./commands/review.js";
 import { runSync } from "./commands/sync.js";
 import { ProposalNotFoundError } from "./core/proposals.js";
 import type { InitModel } from "./commands/init.js";
@@ -93,6 +94,14 @@ export function createProgram(): Command {
     .option("--scope <scope>", "scope for learn (MVP supports project only)")
     .action(async (options: { notes?: string; notesFile?: string; scope?: string }) => {
       console.log(await runLearn(process.cwd(), options));
+    });
+
+  program.command("review")
+    .description("Review instruction markdown quality and create an improvement proposal")
+    .option("--scope <scope>", "scope to review (MVP supports project only)")
+    .option("--notes <text>", "additional review focus")
+    .action(async (options: { scope?: string; notes?: string }) => {
+      console.log(await runReview(process.cwd(), options));
     });
 
   program.command("proposal:show")

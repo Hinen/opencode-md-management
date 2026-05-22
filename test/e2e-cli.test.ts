@@ -6,6 +6,7 @@ import { runInit } from "../src/commands/init.js";
 import { runLearn } from "../src/commands/learn.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "../src/commands/proposal.js";
 import { runRevise } from "../src/commands/revise.js";
+import { runReview } from "../src/commands/review.js";
 import { runSync } from "../src/commands/sync.js";
 
 async function createTempRoot(): Promise<string> {
@@ -82,6 +83,18 @@ describe("CLI workflow handlers", () => {
 
     await expect(runProposalShow(root, "unknown-id")).rejects.toThrow(/Proposal not found: unknown-id/);
     await expect(runProposalList(root, { status: "bogus" })).rejects.toThrow(/Invalid status filter: bogus/);
+  });
+
+  it("creates review proposals from audit findings", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n- Maybe run tests later.\n", "utf8");
+    await runInit(root);
+
+    const output = await runReview(root);
+
+    expect(output).toContain("Instruction update [pending]");
+    expect(output).toContain("vague-instruction");
   });
 
   it("rejects unknown sync targets", async () => {
