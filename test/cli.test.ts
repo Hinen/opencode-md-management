@@ -94,10 +94,8 @@ describe("createProgram", () => {
       "omm:proposal-reject",
       "omm:proposal-gc"
     ]));
-    expect(config.command["omm:init"].template).toContain("show this exact supported model list");
-    expect(config.command["omm:init"].template).toContain("ask which mirror target models/tools to enable");
-    expect(config.command["omm:init"].template).toContain("opencode: AGENTS.md");
-    expect(config.command["omm:init"].template).toContain("claude: CLAUDE.md");
+    expect(config.command["omm:init"].template).toContain("without asking the user to choose primary or mirror targets");
+    expect(config.command["omm:init"].template).toContain("existing known instruction files are adopted automatically");
     expect(config.command["omm:doctor"].template).toBe("custom");
     expect(config.command["omm:sync-apply"].template).toContain("agent_md_sync");
     expect(Object.keys(config.command["omm:sync-apply"]).sort()).toEqual(["description", "template"]);

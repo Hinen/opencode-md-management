@@ -22,7 +22,7 @@ export function createProgram(): Command {
     .version("0.1.0");
 
   program.command("init")
-    .description("Create .agent-md.json without modifying markdown files")
+    .description("Create .agent-md.json and auto-adopt existing instruction files")
     .option("--model <model>", "primary instruction model/tool (opencode|claude|gemini|codex|copilot)")
     .option("--mirror <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
     .option("--scope <scope>", "scope to initialize (project|local|global:claude|global:opencode|global:codex)")
@@ -111,7 +111,7 @@ export function createProgram(): Command {
     });
 
   program.command("proposal:approve")
-    .description("Approve a stored proposal and write the canonical file")
+    .description("Approve a stored proposal and sync enabled mirror targets")
     .argument("<id>", "proposal id")
     .action(async (id: string) => {
       console.log(await runProposalApprove(process.cwd(), id));
