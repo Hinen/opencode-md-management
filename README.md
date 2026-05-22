@@ -6,7 +6,7 @@ Manage AI instruction markdown files for OpenCode with explicit project and scop
 
 ## What it does
 
-- Registers OpenCode slash commands: `/agent-md:init`, `/agent-md:doctor`, `/agent-md:audit`, `/agent-md:sync`, `/agent-md:sync-apply`, `/agent-md:revise`, `/agent-md:learn`, `/agent-md:proposals`, `/agent-md:proposal-show`, `/agent-md:proposal-approve`, `/agent-md:proposal-reject`, and `/agent-md:proposal-gc`.
+- Registers OpenCode slash commands: `/omm:init`, `/omm:doctor`, `/omm:audit`, `/omm:sync`, `/omm:sync-apply`, `/omm:revise`, `/omm:learn`, `/omm:proposals`, `/omm:proposal-show`, `/omm:proposal-approve`, `/omm:proposal-reject`, and `/omm:proposal-gc`.
 - Provides matching plugin tools: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_revise`, `agent_md_learn`, and `agent_md_proposal_*`.
 - Keeps writes single-scope. `--scope all` is read-only and write commands reject it.
 - Treats `.claude.local.md` as a local scope, never as a project mirror target.
@@ -30,11 +30,11 @@ OpenCode plugin config:
 ## Quick start
 
 ```text
-/agent-md:init
-/agent-md:doctor
-/agent-md:audit
-/agent-md:sync
-/agent-md:sync-apply
+/omm:init
+/omm:doctor
+/omm:audit
+/omm:sync
+/omm:sync-apply
 ```
 
 CLI equivalent:
