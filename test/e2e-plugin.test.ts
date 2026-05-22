@@ -65,6 +65,19 @@ describe("plugin tools", () => {
     expect(output).toContain("+- Prefer small diffs");
   });
 
+  it("executes review through a fake OpenCode context", async () => {
+    const root = await createTempRoot();
+    const hooks = await OpencodeMdManagement({} as never);
+
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n- Maybe run tests later.\n", "utf8");
+
+    const output = await hooks.tool!.agent_md_review.execute({}, { worktree: root } as never);
+
+    expect(output).toContain("Instruction update [pending]");
+    expect(output).toContain("vague-instruction");
+  });
+
   it("executes proposal lifecycle tools through a fake OpenCode context", async () => {
     const root = await createTempRoot();
     const hooks = await OpencodeMdManagement({} as never);

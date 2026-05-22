@@ -6,6 +6,7 @@ import { runLearn } from "./commands/learn.js";
 import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
+import { runReview } from "./commands/review.js";
 import { runSync } from "./commands/sync.js";
 
 type OpenCodeCommand = NonNullable<Config["command"]>[string];
@@ -79,6 +80,17 @@ If the user supplied --scope, pass it as scope.
 If the untrusted arguments contain --notes-file, read that file as learning notes.
 Otherwise use the full untrusted argument text as learning notes.
 Inspect the current canonical instruction markdown, integrate the learning notes into the most relevant section without duplicating existing guidance, and call only agent_md_learn with notes set to the learning notes and after set to the full improved canonical markdown.`,
+    true
+  ),
+  [`${commandPrefix}:review`]: createCommand(
+    "Review AI instruction markdown quality and propose improvements.",
+    `Call agent_md_audit first.
+Read the current canonical instruction markdown file.
+Inspect the repository only as needed to check whether the instructions match real commands, project structure, tests, and conventions.
+Identify missing, duplicated, stale, vague, or poorly followed guidance.
+Do not edit markdown files directly.
+Create exactly one proposal by calling agent_md_revise with notes set to a concise review summary and after set to the full improved canonical markdown.
+Report the proposal output and tell the user to run /omm:proposals.`,
     true
   ),
   [`${commandPrefix}:proposals`]: createCommand(
@@ -206,6 +218,17 @@ export const OpencodeMdManagement: Plugin = async () => ({
       },
       async execute(args, context) {
         return runLearn(projectRoot(context), args);
+      }
+    }),
+
+    agent_md_review: tool({
+      description: "Review AI instruction markdown quality and create a proposal for improvements.",
+      args: {
+        scope: tool.schema.string().optional().describe("Scope to review. MVP supports project only."),
+        notes: tool.schema.string().optional().describe("Additional review focus.")
+      },
+      async execute(args, context) {
+        return runReview(projectRoot(context), args);
       }
     }),
 
