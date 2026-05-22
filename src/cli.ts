@@ -6,6 +6,7 @@ import { runAuditReport } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
+import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
 import { runSync } from "./commands/sync.js";
@@ -62,6 +63,19 @@ export function createProgram(): Command {
     .option("--scope <scope>", "scope to sync (project|global|local|nested id)")
     .action(async (options: { apply?: boolean; force?: boolean; target?: string; scope?: string }) => {
       console.log(await runSync(process.cwd(), options));
+    });
+
+  program.command("mirrors")
+    .description("Enable or disable project mirror targets")
+    .option("--enable <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
+    .option("--disable <model...>", "mirror target model/tool to disable (opencode|claude|gemini|codex|copilot)")
+    .option("--scope <scope>", "scope for mirrors (MVP supports project only)")
+    .action(async (options: { enable?: string[]; disable?: string[]; scope?: string }) => {
+      console.log(await runMirrors(process.cwd(), {
+        enable: parseInitMirrorOption(options.enable),
+        disable: parseInitMirrorOption(options.disable),
+        scope: options.scope
+      }));
     });
 
   program.command("revise")

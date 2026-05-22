@@ -3,6 +3,7 @@ import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
+import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
 import { runSync } from "./commands/sync.js";
@@ -59,6 +60,14 @@ If the user supplied --force in the untrusted arguments, pass force=true.
 If the user supplied a target path in the untrusted arguments, pass it as target.
 If the user supplied a scope in the untrusted arguments, pass it as scope.
 Never pass scope=all from this apply command.`,
+    true
+  ),
+  [`${commandPrefix}:mirrors`]: createCommand(
+    "Enable or disable project mirror targets.",
+    `Call agent_md_mirrors.
+If the user supplied --enable, pass those model/tool values as enable.
+If the user supplied --disable, pass those model/tool values as disable.
+If the user supplied --scope, pass it as scope.`,
     true
   ),
   [`${commandPrefix}:revise`]: createCommand(
@@ -162,6 +171,18 @@ export const OpencodeMdManagement: Plugin = async () => ({
       },
       async execute(args, context) {
         return runSync(projectRoot(context), args);
+      }
+    }),
+
+    agent_md_mirrors: tool({
+      description: "Enable or disable project mirror targets after init.",
+      args: {
+        enable: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to enable."),
+        disable: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to disable."),
+        scope: tool.schema.string().optional().describe("Scope for mirrors. MVP supports project only.")
+      },
+      async execute(args, context) {
+        return runMirrors(projectRoot(context), args);
       }
     }),
 
