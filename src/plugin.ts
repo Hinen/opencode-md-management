@@ -89,17 +89,20 @@ If the untrusted arguments contain a status, pass it as status.`,
   ),
   [`${commandPrefix}:proposal-show`]: createCommand(
     "Show a stored AI instruction markdown proposal diff.",
-    "Call agent_md_proposal_show with id from the untrusted arguments.",
+    `If the untrusted arguments contain an id, pass it to agent_md_proposal_show.
+Otherwise call agent_md_proposal_show without id to show the only pending instruction update.`,
     true
   ),
   [`${commandPrefix}:proposal-approve`]: createCommand(
     "Approve a stored proposal and sync enabled mirror targets.",
-    "Call agent_md_proposal_approve with id from the untrusted arguments and report the tool output.",
+    `If the untrusted arguments contain an id, pass it to agent_md_proposal_approve.
+Otherwise call agent_md_proposal_approve without id to approve the only pending instruction update.`,
     true
   ),
   [`${commandPrefix}:proposal-reject`]: createCommand(
     "Reject a stored AI instruction markdown proposal.",
-    `Call agent_md_proposal_reject with id from the untrusted arguments.
+    `If the untrusted arguments contain an id, pass it to agent_md_proposal_reject.
+Otherwise call agent_md_proposal_reject without id to reject the only pending instruction update.
 If a reason is supplied, pass it as reason.`,
     true
   ),
@@ -207,7 +210,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_proposal_show: tool({
       description: "Show a stored AI instruction markdown proposal diff.",
       args: {
-        id: tool.schema.string().describe("Proposal id.")
+        id: tool.schema.string().optional().describe("Proposal id. If omitted, the only pending instruction update is used.")
       },
       async execute(args, context) {
         return runProposalShow(projectRoot(context), args.id);
@@ -226,9 +229,9 @@ export const OpencodeMdManagement: Plugin = async () => ({
     }),
 
     agent_md_proposal_approve: tool({
-      description: "Approve a stored proposal and update the canonical file if it is not stale.",
+      description: "Approve a stored proposal and sync enabled mirror targets if it is not stale.",
       args: {
-        id: tool.schema.string().describe("Proposal id.")
+        id: tool.schema.string().optional().describe("Proposal id. If omitted, the only pending instruction update is used.")
       },
       async execute(args, context) {
         return runProposalApprove(projectRoot(context), args.id);
@@ -238,7 +241,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_proposal_reject: tool({
       description: "Reject a stored AI instruction markdown proposal.",
       args: {
-        id: tool.schema.string().describe("Proposal id."),
+        id: tool.schema.string().optional().describe("Proposal id. If omitted, the only pending instruction update is used."),
         reason: tool.schema.string().optional().describe("Human-readable rejection reason.")
       },
       async execute(args, context) {

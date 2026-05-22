@@ -13,7 +13,7 @@ async function createTempRoot(): Promise<string> {
 }
 
 function proposalId(output: string): string {
-  const match = output.match(/Proposal ([a-zA-Z0-9-]+)/);
+  const match = output.match(/^([a-zA-Z0-9-]+)\t/m);
 
   if (!match)
     throw new Error(`Proposal id not found in output: ${output}`);
@@ -28,14 +28,13 @@ describe("CLI workflow handlers", () => {
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
     await runInit(root);
 
-    const revise = await runRevise(root, { notes: "Always run npm test" });
-    const id = proposalId(revise);
-    const show = await runProposalShow(root, id);
+    await runRevise(root, { notes: "Always run npm test" });
+    const show = await runProposalShow(root);
 
     expect(show).toContain("+Always run npm test");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
 
-    await runProposalApprove(root, id);
+    await runProposalApprove(root);
 
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Always run npm test");
   });
@@ -46,9 +45,11 @@ describe("CLI workflow handlers", () => {
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
     await runInit(root);
 
-    const first = proposalId(await runRevise(root, { notes: "First change" }));
-    const second = proposalId(await runLearn(root, { notes: "Second change" }));
+    await runRevise(root, { notes: "First change" });
+    const first = proposalId(await runProposalList(root));
+    await runLearn(root, { notes: "Second change" });
     const list = await runProposalList(root);
+    const second = list.split("\n").map((line) => line.split("\t")[0]).find((id) => id !== first)!;
 
     expect(list).toContain(first);
     expect(list).toContain(second);
@@ -61,7 +62,7 @@ describe("CLI workflow handlers", () => {
     ]);
     expect(json[0]).toHaveProperty("createdAt");
 
-    expect(await runProposalReject(root, first, { reason: "obsolete" })).toBe(`Rejected proposal ${first}`);
+    expect(await runProposalReject(root, first, { reason: "obsolete" })).toBe("Rejected instruction update");
     expect(await runProposalList(root, { status: "rejected" })).toContain(`${first}\trejected`);
 
     const rejectedJson = JSON.parse(await runProposalList(root, { status: "rejected", json: true }));

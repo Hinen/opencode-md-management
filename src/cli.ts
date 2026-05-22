@@ -97,8 +97,8 @@ export function createProgram(): Command {
 
   program.command("proposal:show")
     .description("Show a stored proposal diff")
-    .argument("<id>", "proposal id")
-    .action(async (id: string) => {
+    .argument("[id]", "proposal id (optional; uses the only pending update if omitted)")
+    .action(async (id: string | undefined) => {
       console.log(await runProposalShow(process.cwd(), id));
     });
 
@@ -112,16 +112,16 @@ export function createProgram(): Command {
 
   program.command("proposal:approve")
     .description("Approve a stored proposal and sync enabled mirror targets")
-    .argument("<id>", "proposal id")
-    .action(async (id: string) => {
+    .argument("[id]", "proposal id (optional; uses the only pending update if omitted)")
+    .action(async (id: string | undefined) => {
       console.log(await runProposalApprove(process.cwd(), id));
     });
 
   program.command("proposal:reject")
     .description("Reject a stored proposal")
-    .argument("<id>", "proposal id")
+    .argument("[id]", "proposal id (optional; uses the only pending update if omitted)")
     .option("--reason <text>", "human-readable rejection reason")
-    .action(async (id: string, options: { reason?: string }) => {
+    .action(async (id: string | undefined, options: { reason?: string }) => {
       console.log(await runProposalReject(process.cwd(), id, options));
     });
 
