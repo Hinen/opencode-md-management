@@ -12,18 +12,18 @@ import {
 const proposalStatuses: Proposal["status"][] = ["pending", "approved", "stale", "rejected"];
 const gcStatuses: Proposal["status"][] = ["approved", "stale", "rejected"];
 
-export async function runProposalShow(root: string, id: string): Promise<string> {
-  return renderProposalForReview(await showProposal(root, id));
+export async function runProposalShow(root: string, id?: string): Promise<string> {
+  return renderProposalForReview(await showProposal(root, id ?? await singlePendingProposalId(root)));
 }
 
-export async function runProposalApprove(root: string, id: string): Promise<string> {
+export async function runProposalApprove(root: string, id?: string): Promise<string> {
   const config = await loadConfig(root);
-  const proposal = await approveProposal(root, id, config);
+  const proposal = await approveProposal(root, id ?? await singlePendingProposalId(root), config);
 
   if (proposal.syncedTargets === 0)
-    return `Approved proposal ${proposal.id}`;
+    return "Approved instruction update";
 
-  return `Approved proposal ${proposal.id}\nSynced ${proposal.syncedTargets} target(s)`;
+  return `Approved instruction update\nSynced ${proposal.syncedTargets} target(s)`;
 }
 
 export async function runProposalList(root: string, options: { status?: string; json?: boolean } = {}): Promise<string> {
@@ -49,10 +49,10 @@ export async function runProposalList(root: string, options: { status?: string; 
     .join("\n");
 }
 
-export async function runProposalReject(root: string, id: string, options: { reason?: string } = {}): Promise<string> {
-  const rejected = await rejectProposal(root, id, { reason: options.reason });
+export async function runProposalReject(root: string, id?: string, options: { reason?: string } = {}): Promise<string> {
+  const rejected = await rejectProposal(root, id ?? await singlePendingProposalId(root), { reason: options.reason });
 
-  return `Rejected proposal ${rejected.id}`;
+  return "Rejected instruction update";
 }
 
 export async function runProposalGc(root: string, options: { olderThanDays?: number; status?: string } = {}): Promise<string> {
@@ -82,4 +82,16 @@ function parseStatusOption(status: string | undefined, allowed: Proposal["status
   }
 
   return parsed as Proposal["status"][];
+}
+
+async function singlePendingProposalId(root: string): Promise<string> {
+  const proposals = await listProposals(root, { status: "pending" });
+
+  if (proposals.length === 0)
+    throw new Error("No pending instruction updates found");
+
+  if (proposals.length > 1)
+    throw new Error("Multiple pending instruction updates found. Run /omm:proposals and pass an id explicitly.");
+
+  return proposals[0].id;
 }

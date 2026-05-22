@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runInit } from "../src/commands/init.js";
-import { runProposalApprove } from "../src/commands/proposal.js";
+import { runProposalApprove, runProposalReject, runProposalShow } from "../src/commands/proposal.js";
 import { parseConfig } from "../src/core/config.js";
 import { hashContent } from "../src/core/hash.js";
 import {
@@ -75,9 +75,56 @@ describe("proposals", () => {
       after: "rules\nmore"
     });
 
-    expect(await runProposalApprove(root, proposal.id)).toBe(`Approved proposal ${proposal.id}\nSynced 1 target(s)`);
+    expect(await runProposalApprove(root, proposal.id)).toBe("Approved instruction update\nSynced 1 target(s)");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
     expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
+  });
+
+  it("shows, approves, and rejects the only pending proposal without an id", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+
+    await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    expect(await runProposalShow(root)).toContain("+more");
+    expect(await runProposalApprove(root)).toBe("Approved instruction update");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
+
+    await createProposal(root, {
+      source: { kind: "learn" },
+      canonical: { path: "AGENTS.md", content: "rules\nmore", hash: hashContent("rules\nmore") },
+      after: "rules\nmore\nagain"
+    });
+
+    expect(await runProposalReject(root)).toBe("Rejected instruction update");
+  });
+
+  it("requires an explicit proposal id when pending proposals are ambiguous", async () => {
+    const root = await createTempRoot();
+    const input = canonical();
+
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await createProposal(root, { source: { kind: "revise" }, canonical: input, after: "a" });
+    await createProposal(root, { source: { kind: "learn" }, canonical: input, after: "b" });
+
+    await expect(runProposalShow(root)).rejects.toThrow(/Multiple pending instruction updates/);
+    await expect(runProposalApprove(root)).rejects.toThrow(/Multiple pending instruction updates/);
+    await expect(runProposalReject(root)).rejects.toThrow(/Multiple pending instruction updates/);
+  });
+
+  it("reports no pending proposal for id-free lifecycle commands", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await expect(runProposalShow(root)).rejects.toThrow(/No pending instruction updates/);
+    await expect(runProposalApprove(root)).rejects.toThrow(/No pending instruction updates/);
+    await expect(runProposalReject(root)).rejects.toThrow(/No pending instruction updates/);
   });
 
   it("rejects mirror drift before changing the canonical file", async () => {
@@ -172,7 +219,8 @@ describe("proposals", () => {
       after: "rules\nmore"
     });
 
-    expect(renderProposalForReview(proposal)).toContain("scope: project");
+    expect(renderProposalForReview(proposal)).toContain("Instruction update [pending]");
+    expect(renderProposalForReview(proposal)).not.toContain("beforeHash");
 
     await overwriteProposal(root, { ...proposal, scopeId: "global:claude" });
 
