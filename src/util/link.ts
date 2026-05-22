@@ -27,7 +27,7 @@ export async function ensureSymlink(root: string, linkPathRel: string, canonical
   const target = computeLinkTargetRelative(linkPathRel, canonicalPathRel);
 
   if (existing) {
-    const currentTarget = await readlink(linkPath);
+    const currentTarget = (await readlink(linkPath)).replace(/\\/g, "/");
 
     if (currentTarget === target)
       return "ok";
