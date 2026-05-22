@@ -68,7 +68,7 @@ describe("proposals", () => {
 
   it("approves proposals when canonical hash matches", async () => {
     const root = await createTempRoot();
-    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+    const config = parseConfig({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } });
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
 
@@ -83,29 +83,11 @@ describe("proposals", () => {
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
   });
 
-  it("syncs enabled mirror targets after command approval", async () => {
-    const root = await createTempRoot();
-
-    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
-    await runInit(root);
-
-    const proposal = await createProposal(root, {
-      source: { kind: "revise" },
-      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
-      after: "rules\nmore"
-    });
-
-    expect(await runProposalApprove(root, proposal.id)).toBe("Approved instruction update\nSynced 1 target(s)");
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
-    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
-  });
-
   it("shows, approves, and rejects the only pending proposal without an id", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
 
     await createProposal(root, {
       source: { kind: "revise" },
@@ -131,7 +113,7 @@ describe("proposals", () => {
     const input = canonical();
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await createProposal(root, { source: { kind: "revise" }, canonical: input, after: "a" });
     await createProposal(root, { source: { kind: "learn" }, canonical: input, after: "b" });
 
@@ -181,7 +163,7 @@ describe("proposals", () => {
     const root = await createTempRoot();
     const input = canonical();
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await createProposal(root, { source: { kind: "revise" }, canonical: input, after: "a" });
     await createProposal(root, { source: { kind: "learn" }, canonical: input, after: "b" });
 
@@ -194,34 +176,15 @@ describe("proposals", () => {
   it("reports no pending proposal for id-free lifecycle commands", async () => {
     const root = await createTempRoot();
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
     await expect(runProposalShow(root)).rejects.toThrow(/No pending instruction updates/);
     await expect(runProposalApprove(root)).rejects.toThrow(/No pending instruction updates/);
     await expect(runProposalReject(root)).rejects.toThrow(/No pending instruction updates/);
   });
 
-  it("rejects mirror drift before changing the canonical file", async () => {
-    const root = await createTempRoot();
-
-    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
-    await runInit(root);
-    await writeFile(join(root, "CLAUDE.md"), "manual", "utf8");
-
-    const proposal = await createProposal(root, {
-      source: { kind: "revise" },
-      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
-      after: "rules\nmore"
-    });
-
-    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/local edits since the last sync/);
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
-    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("manual");
-  });
-
   it("rejects stale proposals", async () => {
     const root = await createTempRoot();
-    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+    const config = parseConfig({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } });
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
 
@@ -240,7 +203,7 @@ describe("proposals", () => {
 
   it("refuses to approve terminal proposals", async () => {
     const root = await createTempRoot();
-    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+    const config = parseConfig({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } });
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
 
@@ -265,7 +228,7 @@ describe("proposals", () => {
 
   it("rejects proposals created for a different canonical path", async () => {
     const root = await createTempRoot();
-    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+    const config = parseConfig({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } });
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
     await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
@@ -282,7 +245,7 @@ describe("proposals", () => {
 
   it("renders proposal scope metadata and rejects scope mismatches", async () => {
     const root = await createTempRoot();
-    const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });
+    const config = parseConfig({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } });
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
 
@@ -362,7 +325,7 @@ describe("proposals", () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [{ path: "CLAUDE.md", mode: "symlink", enabled: true }], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: ["CLAUDE.md"], sync: { requireGitClean: false } }), "utf8");
     await ensureSymlink(root, "CLAUDE.md", "AGENTS.md");
 
     const proposal = await createProposal(root, {
@@ -377,11 +340,11 @@ describe("proposals", () => {
     expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
   });
 
-  symlinkIt("approves proposal and creates a missing symlink alias", async () => {
+  symlinkIt("approves proposal and repairs a missing symlink alias", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [{ path: "CLAUDE.md", mode: "symlink", enabled: true }], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: ["CLAUDE.md"], sync: { requireGitClean: false } }), "utf8");
 
     const proposal = await createProposal(root, {
       source: { kind: "revise" },
@@ -389,23 +352,21 @@ describe("proposals", () => {
       after: "rules\nmore"
     });
 
-    expect(await runProposalApprove(root, proposal.id)).toBe("Approved instruction update\nSynced 1 target(s)");
+    expect(await runProposalApprove(root, proposal.id)).toBe("Approved instruction update\nRepaired 1 alias(es)");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
     expect(await readlink(join(root, "CLAUDE.md"))).toBe("AGENTS.md");
     expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
 
     const manifest = JSON.parse(await readFile(join(root, ".agent-md", "manifest.json"), "utf8"));
-    const claudeEntry = manifest.targets.find((t: { path: string }) => t.path === "CLAUDE.md");
 
-    expect(claudeEntry?.mode).toBe("symlink");
-    expect(claudeEntry?.lastSyncedHash).toBe("symlink");
+    expect(manifest.aliases).toContain("CLAUDE.md");
   });
 
   symlinkIt("rejects approval when symlink alias points to wrong target, force-sync fixes it", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [{ path: "CLAUDE.md", mode: "symlink", enabled: true }], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: ["CLAUDE.md"], sync: { requireGitClean: false } }), "utf8");
     await symlink("WRONG.md", join(root, "CLAUDE.md"));
 
     const proposal = await createProposal(root, {
@@ -414,7 +375,7 @@ describe("proposals", () => {
       after: "rules\nmore"
     });
 
-    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/CLAUDE\.md.*local edits since the last sync/);
+    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/CLAUDE\.md.*local drift/);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
 
     await runSync(root, { apply: true, force: true });

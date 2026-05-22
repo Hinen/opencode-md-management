@@ -48,15 +48,16 @@ describe("runAuditReport", () => {
     expect(report.output).toContain("No findings in AGENTS.md");
   });
 
-  it("reports target sync status for adopted scopes", async () => {
+  it("reports alias sync status for adopted scopes", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "CLAUDE.md"), "# Rules\n- Run `npm test`.\n", "utf8");
-    await runInit(root, { model: "claude", mirrors: ["opencode"] });
+    await runInit(root, { model: "claude" });
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "CLAUDE.md", aliases: ["AGENTS.md"], sync: { requireGitClean: false } }), "utf8");
 
     const report = await runAuditReport(root);
 
-    expect(report.output).toContain("Targets:");
+    expect(report.output).toContain("Aliases:");
     expect(report.output).toContain("AGENTS.md: missing");
   });
 

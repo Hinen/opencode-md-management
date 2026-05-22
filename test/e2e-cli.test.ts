@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -12,6 +12,25 @@ import { runSync } from "../src/commands/sync.js";
 async function createTempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "opencode-md-management-"));
 }
+
+async function canCreateSymlink(): Promise<boolean> {
+  const root = await createTempRoot();
+  await writeFile(join(root, "target.md"), "rules", "utf8");
+
+  try {
+    await symlink("target.md", join(root, "link.md"));
+
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EPERM")
+      return false;
+
+    throw error;
+  }
+}
+
+const canCreateWindowsSymlink = process.platform === "win32" ? await canCreateSymlink() : true;
+const symlinkIt = it.skipIf(process.platform === "win32" && !canCreateWindowsSymlink);
 
 describe("CLI workflow handlers", () => {
   it("creates, shows, and approves a revise proposal", async () => {
@@ -97,13 +116,13 @@ describe("CLI workflow handlers", () => {
     expect(output).toContain("vague-instruction");
   });
 
-  it("rejects unknown sync targets", async () => {
+  it("rejects unknown sync aliases", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
     await runInit(root);
 
-    await expect(runSync(root, { target: "NOPE.md" })).rejects.toThrow(/Unknown sync target/);
+    await expect(runSync(root, { target: "NOPE.md" })).rejects.toThrow(/Unknown alias/);
   });
 
   it("rejects sync across multiple scopes", async () => {
@@ -116,15 +135,15 @@ describe("CLI workflow handlers", () => {
     await expect(runSync(root, { scope: "all" })).rejects.toThrow(/Cannot write to all instruction file scopes/);
   });
 
-  it("sync only sees explicitly enabled init mirrors", async () => {
+  symlinkIt("sync only sees explicitly enabled init aliases", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "CLAUDE.md"), "# Rules\n", "utf8");
-    await runInit(root, { model: "claude", mirrors: ["opencode"] });
+    await runInit(root, { model: "claude", aliases: ["opencode"] });
 
     const preview = await runSync(root);
 
-    expect(preview).toContain("--- a/AGENTS.md");
-    expect(preview).not.toContain("--- a/GEMINI.md");
+    expect(preview).toContain("symlink: AGENTS.md → CLAUDE.md");
+    expect(preview).not.toContain("GEMINI.md");
   });
 });

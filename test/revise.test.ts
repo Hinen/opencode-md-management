@@ -12,8 +12,8 @@ async function createTempRoot(): Promise<string> {
 async function createConfiguredRoot(): Promise<string> {
   const root = await createTempRoot();
 
-  await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
-  await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
 
   return root;
 }
@@ -44,7 +44,7 @@ describe("runRevise", () => {
   it("rejects disabled llm proposals", async () => {
     const root = await createTempRoot();
 
-    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], llm: { enabled: false } }), "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], llm: { enabled: false } }), "utf8");
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
 
     await expect(runRevise(root, { notes: "Add rules" })).rejects.toThrow(/disabled/);

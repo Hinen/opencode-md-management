@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -8,30 +8,56 @@ async function createTempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "opencode-md-management-"));
 }
 
-describe("runInit", () => {
-  it("defaults to AGENTS.md when no canonical file exists", async () => {
-    const root = await createTempRoot();
+async function canCreateSymlink(): Promise<boolean> {
+  const root = await createTempRoot();
+  await writeFile(join(root, "target.md"), "rules", "utf8");
 
-    expect(await runInit(root)).toBe("Created .agent-md.json with canonical AGENTS.md");
+  try {
+    await symlink("target.md", join(root, "link.md"));
+
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EPERM")
+      return false;
+
+    throw error;
+  }
+}
+
+const canCreateWindowsSymlink = process.platform === "win32" ? await canCreateSymlink() : true;
+const symlinkIt = it.skipIf(process.platform === "win32" && !canCreateWindowsSymlink);
+
+describe("runInit", () => {
+  it("defaults to AGENTS.md and creates a placeholder primary file when none exists", async () => {
+    const root = await createTempRoot();
+    const output = await runInit(root);
+
+    expect(output).toContain("Created .agent-md.json with primary AGENTS.md");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Single source of truth");
   });
 
-  it("uses existing CLAUDE.md as canonical when AGENTS.md is absent", async () => {
+  it("uses existing CLAUDE.md as primary when AGENTS.md is absent", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "CLAUDE.md"), "# Rules\n", "utf8");
 
-    expect(await runInit(root)).toBe("Created .agent-md.json with canonical CLAUDE.md");
+    const output = await runInit(root);
+
+    expect(output).toContain("Created .agent-md.json with primary CLAUDE.md");
+    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("# Rules\n");
   });
 
-  it("uses existing GEMINI.md as canonical when AGENTS.md and CLAUDE.md are absent", async () => {
+  it("uses existing GEMINI.md as primary when AGENTS.md and CLAUDE.md are absent", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "GEMINI.md"), "# Rules\n", "utf8");
 
-    expect(await runInit(root)).toBe("Created .agent-md.json with canonical GEMINI.md");
+    const output = await runInit(root);
+
+    expect(output).toContain("Created .agent-md.json with primary GEMINI.md");
   });
 
-  it("automatically enables existing instruction files as mirror targets", async () => {
+  it("does not auto-add aliases when only existing instruction files are present with matching content", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
@@ -42,49 +68,49 @@ describe("runInit", () => {
     const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
     const manifest = JSON.parse(await readFile(join(root, ".agent-md", "manifest.json"), "utf8"));
 
-    expect(config.canonical).toBe("AGENTS.md");
-    expect(config.targets).toContainEqual({ path: "CLAUDE.md", mode: "mirror", enabled: true });
-    expect(manifest.targets).toHaveLength(1);
-    expect(manifest.targets[0].path).toBe("CLAUDE.md");
+    expect(config.primary).toBe("AGENTS.md");
+    expect(config.aliases).toEqual([]);
+    expect(manifest.aliases).toEqual([]);
   });
 
-  it("uses the explicit primary model as canonical", async () => {
+  it("uses the explicit primary model and writes a placeholder file", async () => {
     const root = await createTempRoot();
+    const output = await runInit(root, { model: "gemini" });
 
-    expect(await runInit(root, { model: "gemini" })).toBe("Created .agent-md.json with canonical GEMINI.md");
-    expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"canonical": "GEMINI.md"');
+    expect(output).toContain("Created .agent-md.json with primary GEMINI.md");
+    expect(await readFile(join(root, ".agent-md.json"), "utf8")).toContain('"primary": "GEMINI.md"');
     expect(await readFile(join(root, ".agent-md", "manifest.json"), "utf8")).toContain('"id": "project"');
+    expect(await readFile(join(root, "GEMINI.md"), "utf8")).toContain("Single source of truth");
   });
 
-  it("keeps mirror targets disabled when only the primary model is selected", async () => {
+  symlinkIt("records selected aliases in the config without auto-enabling unrelated paths", async () => {
     const root = await createTempRoot();
 
-    await runInit(root, { model: "claude" });
+    await runInit(root, { model: "claude", aliases: ["opencode", "gemini"] });
 
     const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
 
-    expect(config.canonical).toBe("CLAUDE.md");
-    expect(config.targets).toEqual([
-      { path: "AGENTS.md", mode: "mirror", enabled: false },
-      { path: "GEMINI.md", mode: "mirror", enabled: false },
-      { path: ".codex/AGENTS.md", mode: "mirror", enabled: false },
-      { path: ".github/copilot-instructions.md", mode: "mirror", enabled: false }
-    ]);
+    expect(config.primary).toBe("CLAUDE.md");
+    expect(config.aliases).toEqual(["AGENTS.md", "GEMINI.md"]);
   });
 
-  it("enables only explicitly selected mirror targets", async () => {
+  symlinkIt("materializes alias symlinks pointing at the primary", async () => {
+    const root = await createTempRoot();
+    const output = await runInit(root, { model: "claude", aliases: ["opencode"] });
+
+    expect(output).toContain("Linked AGENTS.md → CLAUDE.md");
+    expect((await lstat(join(root, "AGENTS.md"))).isSymbolicLink()).toBe(true);
+  });
+
+  it("skips aliases that already exist as regular files and reports them", async () => {
     const root = await createTempRoot();
 
-    await runInit(root, { model: "claude", mirrors: ["opencode", "gemini"] });
+    await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
 
-    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+    const output = await runInit(root, { model: "claude", aliases: ["opencode"] });
 
-    expect(config.targets).toEqual([
-      { path: "AGENTS.md", mode: "mirror", enabled: true },
-      { path: "GEMINI.md", mode: "mirror", enabled: true },
-      { path: ".codex/AGENTS.md", mode: "mirror", enabled: false },
-      { path: ".github/copilot-instructions.md", mode: "mirror", enabled: false }
-    ]);
+    expect(output).toContain("Skipped AGENTS.md: existing regular file");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# OpenCode rules\n");
   });
 
   it("rejects ambiguous existing instruction files with different content", async () => {
@@ -102,7 +128,9 @@ describe("runInit", () => {
     await writeFile(join(root, "AGENTS.md"), "# OpenCode rules\n", "utf8");
     await writeFile(join(root, "CLAUDE.md"), "# Claude rules\n", "utf8");
 
-    expect(await runInit(root, { model: "claude" })).toBe("Created .agent-md.json with canonical CLAUDE.md");
+    const output = await runInit(root, { model: "claude" });
+
+    expect(output).toContain("Created .agent-md.json with primary CLAUDE.md");
   });
 
   it("throws a friendly error when config exists", async () => {

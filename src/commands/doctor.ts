@@ -14,7 +14,7 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
     const lines = [`scope: ${formatScopeIdForUser(scope.id)} ${scope.root}`, `  primary: ${scope.primary} [${scope.adopted ? "managed" : "detected"}]`];
 
     if (!scope.adopted || !scope.config) {
-      lines.push("  manifest: missing", "  targets:");
+      lines.push("  manifest: missing", "  aliases:");
 
       if (scope.kind === "global")
         lines.push(`  hint: run /omm:init --scope ${scope.id} --adopt to manage this file.`);
@@ -34,7 +34,7 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
       if (error instanceof Error && (error.message.includes("Canonical instruction file not found") || error.message.includes("canonical instruction markdown"))) {
         const manifest = await readManifest(scope.root, manifestPathForScope(scope.config.scope.id));
 
-        lines.push(`  manifest: ${manifest ? "present" : "missing"}`, "  targets:", `  error: ${error.message}`);
+        lines.push(`  manifest: ${manifest ? "present" : "missing"}`, "  aliases:", `  error: ${error.message}`);
         output.push(lines.join("\n"));
         continue;
       }
@@ -42,10 +42,10 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
       throw error;
     }
 
-    lines.push(`  manifest: ${plan.manifest ? "present" : "missing"}`, "  targets:");
+    lines.push(`  manifest: ${plan.manifest ? "present" : "missing"}`, "  aliases:");
 
-    for (const target of plan.targets)
-      lines.push(`    ${target.path} [${target.status}]`);
+    for (const alias of plan.aliases)
+      lines.push(`    ${alias.path} [${alias.status}]`);
 
     if (scope.overridePath)
       lines.push(`  override: ${scope.overridePath} [read-only]`);

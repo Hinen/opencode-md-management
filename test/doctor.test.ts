@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -26,6 +26,7 @@ describe("runDoctor", () => {
     const root = await createTempRoot();
 
     await runInit(root, { model: "claude" });
+    await rm(join(root, "CLAUDE.md"));
 
     const output = await runDoctor(root);
 

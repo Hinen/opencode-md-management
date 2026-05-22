@@ -5,12 +5,12 @@ import type { AgentMdManifest } from "./types.js";
 import { hashContent } from "./hash.js";
 import { assertParentChainInsideRoot, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 
-// lastSyncedHash uses "symlink" sentinel for symlink-mode targets: symlinks have no
-// meaningful content hash, but keeping the field non-optional avoids downstream invariant breaks.
-const manifestTargetSchema = z.object({
+// Legacy v1/v2 manifests carry `targets: [{ path, mode, lastSyncedHash }]`.
+// v3 drops mode and lastSyncedHash (symlink-only model has no drift to hash) and stores aliases as a path list.
+const legacyTargetSchema = z.object({
   path: z.string().min(1),
-  mode: z.enum(["mirror", "symlink"]),
-  lastSyncedHash: z.union([z.string().startsWith("sha256:"), z.literal("symlink")])
+  mode: z.string().optional(),
+  lastSyncedHash: z.string().optional()
 });
 
 const manifestV1Schema = z.object({
@@ -19,7 +19,7 @@ const manifestV1Schema = z.object({
     path: z.string().min(1),
     hash: z.string().startsWith("sha256:")
   }),
-  targets: z.array(manifestTargetSchema)
+  targets: z.array(legacyTargetSchema)
 });
 
 const scopeIdentitySchema = z.object({
@@ -42,7 +42,25 @@ const manifestV2Schema = z.object({
     path: z.string().min(1),
     hash: z.string().startsWith("sha256:")
   }).optional(),
-  targets: z.array(manifestTargetSchema),
+  targets: z.array(legacyTargetSchema),
+  adoptedAt: z.string().min(1)
+});
+
+const manifestV3Schema = z.object({
+  version: z.literal(3),
+  scope: scopeIdentitySchema,
+  root: z.string().min(1),
+  configPath: z.string().min(1),
+  configHash: z.string().startsWith("sha256:"),
+  primary: z.object({
+    path: z.string().min(1),
+    hash: z.string().startsWith("sha256:")
+  }),
+  canonical: z.object({
+    path: z.string().min(1),
+    hash: z.string().startsWith("sha256:")
+  }).optional(),
+  aliases: z.array(z.string().min(1)),
   adoptedAt: z.string().min(1)
 });
 
@@ -60,19 +78,35 @@ export function parseManifest(input: unknown): AgentMdManifest {
     const manifest = manifestV1Schema.parse(input);
 
     return {
-      version: 2,
+      version: 3,
       scope: { id: "project", kind: "project", tool: null },
       root: ".",
       configPath: ".agent-md.json",
       configHash: hashContent("legacy-v1"),
       primary: manifest.canonical,
       canonical: manifest.canonical,
-      targets: manifest.targets,
+      aliases: manifest.targets.map((target) => target.path),
       adoptedAt: new Date(0).toISOString()
     };
   }
 
-  const manifest = manifestV2Schema.parse(input);
+  if (version === 2) {
+    const manifest = manifestV2Schema.parse(input);
+
+    return {
+      version: 3,
+      scope: manifest.scope,
+      root: manifest.root,
+      configPath: manifest.configPath,
+      configHash: manifest.configHash,
+      primary: manifest.primary,
+      canonical: manifest.canonical ?? manifest.primary,
+      aliases: manifest.targets.map((target) => target.path),
+      adoptedAt: manifest.adoptedAt
+    };
+  }
+
+  const manifest = manifestV3Schema.parse(input);
 
   return { ...manifest, canonical: manifest.canonical ?? manifest.primary };
 }
@@ -106,17 +140,17 @@ export function createManifest(input: {
   configHash: string;
   scope: AgentMdManifest["scope"];
   primary: AgentMdManifest["primary"];
-  targets?: AgentMdManifest["targets"];
+  aliases?: string[];
 }): AgentMdManifest {
   return {
-    version: 2,
+    version: 3,
     scope: input.scope,
     root: resolve(input.root).replace(/\\/g, "/"),
     configPath: resolve(input.configPath).replace(/\\/g, "/"),
     configHash: input.configHash,
     primary: input.primary,
     canonical: input.primary,
-    targets: input.targets ?? [],
+    aliases: input.aliases ?? [],
     adoptedAt: new Date().toISOString()
   };
 }

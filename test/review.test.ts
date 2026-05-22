@@ -9,7 +9,7 @@ import type { LlmProvider } from "../src/core/llm.js";
 async function createConfiguredRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "opencode-md-management-"));
 
-  await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+  await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", aliases: [], sync: { requireGitClean: false } }), "utf8");
   await writeFile(join(root, "AGENTS.md"), "# Rules\n- Maybe run tests later.\n", "utf8");
 
   return root;

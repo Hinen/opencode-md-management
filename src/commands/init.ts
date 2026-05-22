@@ -4,13 +4,15 @@ import { configFileName, localConfigFileName, parseConfig } from "../core/config
 import { createManifest, manifestPathForScope, writeManifest } from "../core/manifest.js";
 import { hashContent } from "../core/hash.js";
 import { defaultPrimaryForScope, globalScopeRoot } from "../core/scope-context.js";
-import type { AgentMdScopeIdentity, ScopeTool } from "../core/types.js";
+import { ensureSymlink } from "../util/link.js";
+import { ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
+import type { AgentMdConfig, AgentMdScopeIdentity, ScopeTool } from "../core/types.js";
 
 export type InitModel = "opencode" | "claude" | "gemini" | "codex" | "copilot";
 
 export type InitCommandOptions = {
   model?: InitModel;
-  mirrors?: InitModel[];
+  aliases?: InitModel[];
   scope?: string;
   adopt?: boolean;
 };
@@ -23,8 +25,13 @@ export const canonicalByModel: Record<InitModel, string> = {
   copilot: ".github/copilot-instructions.md"
 };
 
-const knownCanonicalCandidates = ["AGENTS.md", "CLAUDE.md", "GEMINI.md", ".codex/AGENTS.md", ".github/copilot-instructions.md"];
-const knownTargets = knownCanonicalCandidates;
+const knownInstructionPaths = Object.values(canonicalByModel);
+
+const primaryPlaceholder = `# Project instructions
+
+Single source of truth for AI assistant guidance in this project.
+Edit this file; symlinked aliases will reflect changes automatically.
+`;
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -40,18 +47,16 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
   if (options.scope && options.scope !== "project")
     return runScopedInit(root, options);
 
-  const canonical = await getDefaultCanonical(root, options);
-  const mirrorPaths = options.mirrors
-    ? new Set(options.mirrors.map((model) => canonicalByModel[model]))
-    : await existingInstructionPaths(root);
-  const targets = knownTargets
-    .filter((path) => path !== canonical)
-    .map((path) => ({ path, mode: "mirror" as const, enabled: mirrorPaths.has(path) }));
-  const config = parseConfig({ scope: { id: "project", kind: "project", tool: null }, primary: canonical, canonical, targets });
-  const output = `${JSON.stringify(config, null, 2)}\n`;
+  const primary = await resolvePrimary(root, options);
+  const aliasPaths = resolveAliasPaths(options.aliases ?? [], primary);
+  const config = parseConfig({
+    scope: { id: "project", kind: "project", tool: null },
+    primary,
+    aliases: aliasPaths
+  });
 
   try {
-    await writeFile(join(root, configFileName), output, { flag: "wx" });
+    await writeFile(join(root, configFileName), `${JSON.stringify(config, null, 2)}\n`, { flag: "wx" });
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "EEXIST")
       throw new Error(`${configFileName} already exists`);
@@ -59,9 +64,16 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
     throw error;
   }
 
+  await ensurePrimaryFile(root, primary);
+
+  const lines = [`Created ${configFileName} with primary ${primary}`];
+  const linkOutcomes = await materializeAliases(root, primary, aliasPaths);
+
+  lines.push(...linkOutcomes);
+
   await writeInitialManifest(root, join(root, configFileName), config, true);
 
-  return `Created ${configFileName} with canonical ${canonical}`;
+  return lines.join("\n");
 }
 
 async function runScopedInit(root: string, options: InitCommandOptions): Promise<string> {
@@ -72,9 +84,8 @@ async function runScopedInit(root: string, options: InitCommandOptions): Promise
   const config = parseConfig({
     scope,
     primary,
-    canonical: primary,
-    targets: [],
-    sync: { requireGitClean: scope.kind === "project", backupDir: scope.id === "local" ? ".agent-md.local/backups" : ".agent-md/backups" }
+    aliases: [],
+    sync: { requireGitClean: scope.kind === "project" }
   });
 
   await mkdir(scopeRoot, { recursive: true });
@@ -93,23 +104,65 @@ async function runScopedInit(root: string, options: InitCommandOptions): Promise
   return `Created ${scope.id} config with primary ${primary}`;
 }
 
-async function writeInitialManifest(root: string, configPath: string, config: ReturnType<typeof parseConfig>, adopt = true): Promise<void> {
+async function resolvePrimary(root: string, options: InitCommandOptions): Promise<string> {
+  if (options.model)
+    return canonicalByModel[options.model];
+
+  await assertNoConflictingExistingInstructions(root);
+
+  for (const path of knownInstructionPaths) {
+    if (await exists(join(root, path)))
+      return path;
+  }
+
+  return "AGENTS.md";
+}
+
+function resolveAliasPaths(aliases: InitModel[], primary: string): string[] {
+  const paths = aliases
+    .map((model) => canonicalByModel[model])
+    .filter((path) => path !== primary);
+
+  return Array.from(new Set(paths)).sort((left, right) => left.localeCompare(right));
+}
+
+async function ensurePrimaryFile(root: string, primary: string): Promise<void> {
+  const absolutePath = resolveInsideRoot(root, primary);
+
+  if (await exists(absolutePath))
+    return;
+
+  await ensureParentDirectory(absolutePath);
+  await writeFile(absolutePath, primaryPlaceholder, { encoding: "utf8", flag: "wx" });
+}
+
+async function materializeAliases(root: string, primary: string, aliasPaths: string[]): Promise<string[]> {
+  const lines: string[] = [];
+
+  for (const aliasPath of aliasPaths) {
+    const outcome = await ensureSymlink(root, aliasPath, primary);
+
+    if (outcome === "conflict-regular-file") {
+      lines.push(`Skipped ${aliasPath}: existing regular file (delete or move it, then run omm aliases --add ${aliasPath})`);
+      continue;
+    }
+
+    lines.push(`Linked ${aliasPath} → ${primary}`);
+  }
+
+  return lines;
+}
+
+async function writeInitialManifest(root: string, configPath: string, config: AgentMdConfig, adopt = true): Promise<void> {
   const primaryPath = join(root, config.primary);
   const primaryHash = adopt && await exists(primaryPath) ? hashContent(await readFile(primaryPath, "utf8")) : hashContent("");
-  const targets = await Promise.all(config.targets
-    .filter((target) => target.enabled)
-    .map(async (target) => ({
-      path: target.path,
-      mode: target.mode,
-      lastSyncedHash: adopt && await exists(join(root, target.path)) ? hashContent(await readFile(join(root, target.path), "utf8")) : hashContent("")
-    })));
   const manifest = createManifest({
     root,
     configPath,
     configHash: hashContent(JSON.stringify(config)),
     scope: config.scope,
     primary: { path: config.primary, hash: primaryHash },
-    targets
+    aliases: config.aliases
   });
 
   await writeManifest(root, manifest, manifestPathForScope(config.scope.id));
@@ -129,24 +182,10 @@ function parseScopeOption(scope: string | undefined): AgentMdScopeIdentity {
   throw new Error(`Invalid init scope: ${scope}. Valid scopes: project, local, global:opencode, global:claude, global:codex.`);
 }
 
-async function getDefaultCanonical(root: string, options: InitCommandOptions): Promise<string> {
-  if (options.model)
-    return canonicalByModel[options.model];
-
-  await assertNoConflictingExistingInstructions(root);
-
-  for (const path of knownCanonicalCandidates) {
-    if (await exists(join(root, path)))
-      return path;
-  }
-
-  return "AGENTS.md";
-}
-
 async function assertNoConflictingExistingInstructions(root: string): Promise<void> {
   const existing: Array<{ path: string; content: string }> = [];
 
-  for (const path of knownCanonicalCandidates) {
+  for (const path of knownInstructionPaths) {
     const absolutePath = join(root, path);
 
     if (await exists(absolutePath))
@@ -161,15 +200,4 @@ async function assertNoConflictingExistingInstructions(root: string): Promise<vo
     `Choose which instruction file should be primary with --model <${Object.keys(canonicalByModel).join("|")}>.`,
     `Existing files: ${existing.map((item) => item.path).join(", ")}`
   ].join(" "));
-}
-
-async function existingInstructionPaths(root: string): Promise<Set<string>> {
-  const paths = new Set<string>();
-
-  for (const path of knownCanonicalCandidates) {
-    if (await exists(join(root, path)))
-      paths.add(path);
-  }
-
-  return paths;
 }
