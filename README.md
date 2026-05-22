@@ -6,8 +6,8 @@ Manage AI instruction markdown files for OpenCode with explicit project and scop
 
 ## What it does
 
-- Registers OpenCode slash commands: `/omm:init`, `/omm:doctor`, `/omm:audit`, `/omm:sync`, `/omm:sync-apply`, `/omm:mirrors`, `/omm:revise`, `/omm:learn`, `/omm:proposals`, `/omm:proposal-show`, `/omm:proposal-approve`, `/omm:proposal-reject`, and `/omm:proposal-gc`.
-- Provides matching plugin tools: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_mirrors`, `agent_md_revise`, `agent_md_learn`, and `agent_md_proposal_*`.
+- Registers OpenCode slash commands: `/omm:init`, `/omm:doctor`, `/omm:audit`, `/omm:sync`, `/omm:sync-apply`, `/omm:mirrors`, `/omm:revise`, `/omm:learn`, `/omm:proposals`, `/omm:proposal-show`, `/omm:proposal-approve`, `/omm:proposal-reject`, `/omm:proposal-gc`, and `/omm:link`.
+- Provides matching plugin tools: `agent_md_init`, `agent_md_doctor`, `agent_md_audit`, `agent_md_sync`, `agent_md_mirrors`, `agent_md_revise`, `agent_md_learn`, `agent_md_proposal_*`, and `agent_md_link`.
 - Keeps writes single-scope. `--scope all` is read-only and write commands reject it.
 - Treats `.claude.local.md` as a local scope, never as a project mirror target.
 - Treats `AGENTS.override.md` as read-only inventory/audit information, not as a sync target.
@@ -36,6 +36,7 @@ OpenCode plugin config:
 /omm:sync
 /omm:sync-apply
 /omm:mirrors --enable opencode
+/omm:link --model claude
 ```
 
 CLI equivalent:
@@ -47,6 +48,7 @@ npx opencode-md-management audit
 npx opencode-md-management sync
 npx opencode-md-management sync --apply
 npx opencode-md-management mirrors --enable opencode
+npx opencode-md-management link --model claude
 ```
 
 ## Scopes
@@ -95,7 +97,7 @@ Project `.agent-md.json` uses v2 shape while still accepting legacy v1 `canonica
   "primary": "CLAUDE.md",
   "canonical": "CLAUDE.md",
   "targets": [
-    { "path": "AGENTS.md", "mode": "mirror", "enabled": true },
+    { "path": "AGENTS.md", "mode": "symlink", "enabled": true },
     { "path": "GEMINI.md", "mode": "mirror", "enabled": false },
     { "path": ".codex/AGENTS.md", "mode": "mirror", "enabled": false }
   ],
@@ -105,7 +107,19 @@ Project `.agent-md.json` uses v2 shape while still accepting legacy v1 `canonica
 }
 ```
 
+Targets support two sync modes: `"mirror"` (file copy, default) and `"symlink"` (filesystem symlink). See [Sync modes](#sync-modes) below.
+
 `mode: "local"` targets are intentionally rejected. Convert local files to local scopes instead.
+
+### Sync modes
+
+**mirror** (default): file-copy sync. `omm:sync --apply` writes primary content into each enabled target. Drift is detected per target; user edits to a target become a conflict and block the next sync unless `--force` is passed.
+
+**symlink**: filesystem symlink. `omm:link --model <model>` points the target path at the primary file. No separate sync step needed; edits to the primary instantly reflect in all aliases. Re-running `omm:link` is idempotent. For Claude and Gemini, `--hierarchical` (default on) also links nested instruction files found in subdirectories.
+
+Windows: symlink creation requires Developer Mode or administrator rights. Failure is explicit and includes a manual fallback: switch to mirror mode with `omm mirrors --mode mirror <model>`.
+
+Gitignore: `omm:link` does not edit `.gitignore`. Add symlink target paths manually if you want to commit aliases.
 
 ## Safety model
 
