@@ -5,6 +5,7 @@ import { createProposal, renderProposalForReview } from "../core/proposals.js";
 
 export type ReviseCommandOptions = {
   notes: string;
+  summary?: string;
   after?: string;
   provider?: LlmProvider;
   kind?: "revise" | "learn";
@@ -39,7 +40,7 @@ export async function runRevise(root: string, options: ReviseCommandOptions): Pr
   assertSafeProposalOutput(result.after);
 
   const proposal = await createProposal(root, {
-    source: { kind: options.kind ?? "revise", summary: options.notes },
+    source: { kind: options.kind ?? "revise", summary: options.summary ?? options.notes },
     canonical,
     after: result.after
   });

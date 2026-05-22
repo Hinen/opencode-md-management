@@ -46,7 +46,7 @@ export async function runProposalList(root: string, options: { status?: string; 
 
   const lines = proposals.map((proposal, index) => [
     `${index + 1}. ${proposal.status} instruction update`,
-    `   request: ${proposal.source.summary ?? "No request summary recorded"}`,
+    `   request: ${formatProposalSummary(proposal.source.summary)}`,
     `   preview: ${previewProposalChanges(proposal)}`,
     `   file: ${proposal.canonicalPath}`,
     `   source: ${proposal.source.kind}`,
@@ -139,4 +139,16 @@ function previewProposalChanges(proposal: Proposal): string {
     return preview;
 
   return `${preview}; ...`;
+}
+
+function formatProposalSummary(summary: string | undefined): string {
+  if (!summary)
+    return "No request summary recorded";
+
+  const singleLine = summary.replace(/\s+/g, " ").trim();
+
+  if (singleLine.length <= 160)
+    return singleLine;
+
+  return `${singleLine.slice(0, 157)}...`;
 }

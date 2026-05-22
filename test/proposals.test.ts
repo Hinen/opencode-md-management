@@ -141,6 +141,21 @@ describe("proposals", () => {
     expect(list).toContain("preview: # Instructions; ## Git; - Write commit messages in English.");
   });
 
+  it("keeps proposal request summaries on one line", async () => {
+    const root = await createTempRoot();
+
+    await createProposal(root, {
+      source: { kind: "revise", summary: "First line\nSecond line" },
+      canonical: canonical(""),
+      after: "updated"
+    });
+
+    const list = await runProposalList(root);
+
+    expect(list).toContain("request: First line Second line");
+    expect(list).not.toContain("request: First line\nSecond line");
+  });
+
   it("guides the user to choose a number when multiple pending proposals exist", async () => {
     const root = await createTempRoot();
     const input = canonical();
