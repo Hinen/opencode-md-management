@@ -13,12 +13,12 @@ export type LearnCommandOptions = {
 
 export async function runLearn(root: string, options: LearnCommandOptions): Promise<string> {
   if (options.notes !== undefined && options.notesFile !== undefined)
-    throw new Error("learn accepts either notes or notesFile, not both");
+    throw new Error("Cannot use both --notes and --notes-file. Choose one source for the instruction update.");
 
   const notes = options.notes ?? await readNotesFile(root, options.notesFile);
 
   if (notes.trim().length === 0)
-    throw new Error("learn requires notes or notesFile");
+    throw new Error("learn requires either --notes <text> or --notes-file <path>.");
 
   return runRevise(root, { notes, after: options.after, provider: options.provider, kind: "learn", scope: options.scope });
 }

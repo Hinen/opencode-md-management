@@ -57,7 +57,7 @@ describe("runLearn", () => {
 
     await writeFile(join(root, "notes.md"), "Prefer small commits", "utf8");
 
-    await expect(runLearn(root, { notes: "Inline", notesFile: "notes.md" })).rejects.toThrow(/either notes or notesFile/);
+    await expect(runLearn(root, { notes: "Inline", notesFile: "notes.md" })).rejects.toThrow(/Cannot use both --notes and --notes-file/);
   });
 
   it("rejects notes files outside the worktree", async () => {
