@@ -41,7 +41,9 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
     return runScopedInit(root, options);
 
   const canonical = await getDefaultCanonical(root, options);
-  const mirrorPaths = new Set((options.mirrors ?? []).map((model) => canonicalByModel[model]));
+  const mirrorPaths = options.mirrors
+    ? new Set(options.mirrors.map((model) => canonicalByModel[model]))
+    : await existingInstructionPaths(root);
   const targets = knownTargets
     .filter((path) => path !== canonical)
     .map((path) => ({ path, mode: "mirror" as const, enabled: mirrorPaths.has(path) }));
@@ -57,7 +59,7 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
     throw error;
   }
 
-  await writeInitialManifest(root, join(root, configFileName), config);
+  await writeInitialManifest(root, join(root, configFileName), config, true);
 
   return `Created ${configFileName} with canonical ${canonical}`;
 }
@@ -94,12 +96,20 @@ async function runScopedInit(root: string, options: InitCommandOptions): Promise
 async function writeInitialManifest(root: string, configPath: string, config: ReturnType<typeof parseConfig>, adopt = true): Promise<void> {
   const primaryPath = join(root, config.primary);
   const primaryHash = adopt && await exists(primaryPath) ? hashContent(await readFile(primaryPath, "utf8")) : hashContent("");
+  const targets = await Promise.all(config.targets
+    .filter((target) => target.enabled)
+    .map(async (target) => ({
+      path: target.path,
+      mode: target.mode,
+      lastSyncedHash: adopt && await exists(join(root, target.path)) ? hashContent(await readFile(join(root, target.path), "utf8")) : hashContent("")
+    })));
   const manifest = createManifest({
     root,
     configPath,
     configHash: hashContent(JSON.stringify(config)),
     scope: config.scope,
-    primary: { path: config.primary, hash: primaryHash }
+    primary: { path: config.primary, hash: primaryHash },
+    targets
   });
 
   await writeManifest(root, manifest, manifestPathForScope(config.scope.id));
@@ -151,4 +161,15 @@ async function assertNoConflictingExistingInstructions(root: string): Promise<vo
     `Choose the primary model explicitly with --model <${Object.keys(canonicalByModel).join("|")}>.`,
     `Existing files: ${existing.map((item) => item.path).join(", ")}`
   ].join(" "));
+}
+
+async function existingInstructionPaths(root: string): Promise<Set<string>> {
+  const paths = new Set<string>();
+
+  for (const path of knownCanonicalCandidates) {
+    if (await exists(join(root, path)))
+      paths.add(path);
+  }
+
+  return paths;
 }

@@ -31,6 +31,23 @@ describe("runInit", () => {
     expect(await runInit(root)).toBe("Created .agent-md.json with canonical GEMINI.md");
   });
 
+  it("automatically enables existing instruction files as mirror targets", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "# Rules\n", "utf8");
+
+    await runInit(root);
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+    const manifest = JSON.parse(await readFile(join(root, ".agent-md", "manifest.json"), "utf8"));
+
+    expect(config.canonical).toBe("AGENTS.md");
+    expect(config.targets).toContainEqual({ path: "CLAUDE.md", mode: "mirror", enabled: true });
+    expect(manifest.targets).toHaveLength(1);
+    expect(manifest.targets[0].path).toBe("CLAUDE.md");
+  });
+
   it("uses the explicit primary model as canonical", async () => {
     const root = await createTempRoot();
 
