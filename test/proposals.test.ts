@@ -141,7 +141,7 @@ describe("proposals", () => {
       after: "rules\nmore"
     });
 
-    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/Target has drift/);
+    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/local edits since the last sync/);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
     expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("manual");
   });
@@ -185,8 +185,8 @@ describe("proposals", () => {
     await overwriteProposal(root, { ...stale, status: "stale" });
     await rejectProposal(root, rejected.id, { reason: "obsolete" });
 
-    await expect(approveProposal(root, stale.id, config)).rejects.toThrow(/Cannot approve a stale proposal/);
-    await expect(approveProposal(root, rejected.id, config)).rejects.toThrow(/Cannot approve a rejected proposal/);
+    await expect(approveProposal(root, stale.id, config)).rejects.toThrow(/already stale/);
+    await expect(approveProposal(root, rejected.id, config)).rejects.toThrow(/already rejected/);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
   });
 
@@ -203,7 +203,7 @@ describe("proposals", () => {
       after: "rules\nmore"
     });
 
-    await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/canonical path/);
+    await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/primary instruction file changed/);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
   });
 
@@ -224,7 +224,7 @@ describe("proposals", () => {
 
     await overwriteProposal(root, { ...proposal, scopeId: "global:claude" });
 
-    await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/scope is stale/);
+    await expect(approveProposal(root, proposal.id, config)).rejects.toThrow(/managed scope changed/);
     expect((await showProposal(root, proposal.id)).status).toBe("stale");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
   });

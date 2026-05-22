@@ -78,7 +78,7 @@ function parseStatusOption(status: string | undefined, allowed: Proposal["status
 
   for (const item of parsed) {
     if (!allowed.includes(item as Proposal["status"]))
-      throw new Error(`Invalid status filter: ${item}`);
+      throw new Error(`Invalid status filter: ${item}. Valid statuses for this command: ${allowed.join(", ")}.`);
   }
 
   return parsed as Proposal["status"][];

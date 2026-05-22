@@ -157,7 +157,7 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
     return { ...proposal, syncedTargets: 0 };
 
   if (proposal.status !== "pending")
-    throw new Error(`Cannot approve a ${proposal.status} proposal: ${id}`);
+    throw new Error(`Cannot approve this instruction update because it is already ${proposal.status}.`);
 
   const canonical = await resolveCanonical(root, config);
 
@@ -165,21 +165,21 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
     const stale = parseProposal({ ...proposal, status: "stale" });
 
     await writeProposal(root, stale);
-    throw new Error(`Proposal scope is stale: ${id}`);
+    throw new Error("This instruction update is stale because the managed scope changed. Review the current instructions and create a new update.");
   }
 
   if (proposal.canonicalPath !== canonical.path) {
     const stale = parseProposal({ ...proposal, status: "stale" });
 
     await writeProposal(root, stale);
-    throw new Error(`Proposal canonical path is stale: ${id}`);
+    throw new Error("This instruction update is stale because the primary instruction file changed. Review the current instructions and create a new update.");
   }
 
   if (canonical.hash !== proposal.beforeHash) {
     const stale = parseProposal({ ...proposal, status: "stale" });
 
     await writeProposal(root, stale);
-    throw new Error(`Proposal is stale: ${id}`);
+    throw new Error("This instruction update is stale because the primary instruction file was edited after the update was created. Review the current instructions and create a new update.");
   }
 
   const nextCanonical = {
@@ -192,7 +192,7 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
   const conflict = changedTargets.find((target) => target.status === "conflict");
 
   if (conflict)
-    throw new Error(`Target has drift and requires --force: ${conflict.path}`);
+    throw new Error(`${conflict.path} has local edits since the last sync. Review those edits, or run sync --apply --force to overwrite the mirror.`);
 
   await writeCanonical(canonical.path, proposal.after, {
     root,
@@ -219,7 +219,7 @@ export async function rejectProposal(root: string, id: string, options: RejectPr
   const proposal = await showProposal(root, id);
 
   if (proposal.status === "approved")
-    throw new Error(`Cannot reject an approved proposal: ${id}`);
+    throw new Error("Cannot reject an instruction update that has already been approved.");
 
   if (proposal.status === "rejected")
     return proposal;
