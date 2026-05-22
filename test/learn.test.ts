@@ -18,7 +18,8 @@ describe("runLearn", () => {
     const root = await createConfiguredRoot();
     const output = await runLearn(root, { notes: "Always run npm test" });
 
-    expect(output).toContain("kind: learn");
+    expect(output).toContain("source: learn");
+    expect(output).toContain("Run /omm:proposal-approve");
     expect(output).toContain("+Always run npm test");
   });
 
@@ -29,7 +30,7 @@ describe("runLearn", () => {
       after: "# Rules\n\n- Prefer small commits\n"
     });
 
-    expect(output).toContain("kind: learn");
+    expect(output).toContain("source: learn");
     expect(output).toContain("+- Prefer small commits");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
   });

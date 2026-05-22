@@ -263,14 +263,17 @@ export async function gcProposals(root: string, options: GcProposalsOptions = {}
 }
 
 export function renderProposalForReview(proposal: Proposal): string {
-  return [
-    `Proposal ${proposal.id} [${proposal.status}]`,
-    `kind: ${proposal.source.kind}`,
-    `scope: ${proposal.scopeId}`,
-    `canonical: ${proposal.canonicalPath}`,
-    `beforeHash: ${proposal.beforeHash}`,
+  const lines = [
+    `Instruction update [${proposal.status}]`,
+    `source: ${proposal.source.kind}`,
+    `file: ${proposal.canonicalPath}`,
     proposal.diff || "No changes proposed"
-  ].join("\n");
+  ];
+
+  if (proposal.status === "pending")
+    lines.push("", "Run /omm:proposal-approve to apply, or /omm:proposal-reject to discard.");
+
+  return lines.join("\n");
 }
 
 async function writeProposal(root: string, proposal: Proposal): Promise<void> {

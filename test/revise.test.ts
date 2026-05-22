@@ -23,7 +23,8 @@ describe("runRevise", () => {
     const root = await createConfiguredRoot();
     const output = await runRevise(root, { notes: "Add test rules" });
 
-    expect(output).toContain("Proposal");
+    expect(output).toContain("Instruction update [pending]");
+    expect(output).toContain("Run /omm:proposal-approve");
     expect(output).toContain("+Add test rules");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
   });
@@ -35,7 +36,7 @@ describe("runRevise", () => {
       after: "# Rules\n\n- Prefer small diffs\n"
     });
 
-    expect(output).toContain("Proposal");
+    expect(output).toContain("Instruction update [pending]");
     expect(output).toContain("+- Prefer small diffs");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Rules\n");
   });
