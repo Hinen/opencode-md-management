@@ -17,7 +17,7 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
       lines.push("  manifest: missing", "  targets:");
 
       if (scope.kind === "global")
-        lines.push(`  hint: run /agent-md:init --scope ${scope.id} --adopt to manage this global file.`);
+        lines.push(`  hint: run /omm:init --scope ${scope.id} --adopt to manage this global file.`);
 
       if (scope.overridePath)
         lines.push(`  override: ${scope.overridePath} [read-only]`);

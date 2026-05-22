@@ -9,7 +9,7 @@ import { runSync } from "./commands/sync.js";
 
 type OpenCodeCommand = NonNullable<Config["command"]>[string];
 
-const commandPrefix = "agent-md";
+const commandPrefix = "omm";
 
 const commandInstructionPrefix = `You are using opencode-md-management.
 Do not edit AI instruction markdown files directly.
@@ -92,7 +92,7 @@ If the untrusted arguments contain a status, pass it as status.`,
   [`${commandPrefix}:proposal-approve`]: createCommand(
     "Approve a stored proposal and update only the canonical file.",
     `Call agent_md_proposal_approve with id from the untrusted arguments.
-After approval, remind the user that targets are updated separately with /agent-md:sync-apply.`,
+After approval, remind the user that targets are updated separately with /omm:sync-apply.`,
     true
   ),
   [`${commandPrefix}:proposal-reject`]: createCommand(
