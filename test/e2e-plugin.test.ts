@@ -79,6 +79,8 @@ describe("plugin tools", () => {
     const id = json[0].id;
 
     expect(list).toContain("1. pending instruction update");
+    expect(list).toContain("request: Prefer small diffs");
+    expect(list).toContain("preview: ## Proposed Instruction Update; <!-- omm: untrusted notes begin -->; Prefer small diffs");
     expect(list).toContain("Use /omm:proposal-show 1 to review");
     expect(list).not.toContain(id);
 

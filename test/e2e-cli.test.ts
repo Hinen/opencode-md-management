@@ -45,6 +45,8 @@ describe("CLI workflow handlers", () => {
     expect(first.id).toBe(firstJson.id);
     expect(list).toContain("1. pending instruction update");
     expect(list).toContain("2. pending instruction update");
+    expect(list).toContain("request: First change");
+    expect(list).toContain("preview: ## Proposed Instruction Update; <!-- omm: untrusted notes begin -->; First change");
     expect(list).toContain("Use /omm:proposal-show 1 to review");
     expect(list).not.toContain(first.id);
     expect(list).not.toContain(second.id);

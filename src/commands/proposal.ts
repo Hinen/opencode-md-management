@@ -46,6 +46,8 @@ export async function runProposalList(root: string, options: { status?: string; 
 
   const lines = proposals.map((proposal, index) => [
     `${index + 1}. ${proposal.status} instruction update`,
+    `   request: ${proposal.source.summary ?? "No request summary recorded"}`,
+    `   preview: ${previewProposalChanges(proposal)}`,
     `   file: ${proposal.canonicalPath}`,
     `   source: ${proposal.source.kind}`,
     `   created: ${proposal.createdAt}`
@@ -119,4 +121,22 @@ async function resolvePendingProposalId(root: string, selector: string | undefin
 
 function isPositiveInteger(value: string): boolean {
   return /^[1-9]\d*$/.test(value);
+}
+
+function previewProposalChanges(proposal: Proposal): string {
+  const addedLines = proposal.diff
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .map((line) => line.slice(1).trim())
+    .filter(Boolean);
+
+  if (addedLines.length === 0)
+    return "No added lines";
+
+  const preview = addedLines.slice(0, 3).join("; ");
+
+  if (addedLines.length <= 3)
+    return preview;
+
+  return `${preview}; ...`;
 }

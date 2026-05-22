@@ -114,11 +114,31 @@ describe("proposals", () => {
     await createProposal(root, { source: { kind: "revise" }, canonical: input, after: "a" });
     await createProposal(root, { source: { kind: "learn" }, canonical: input, after: "b" });
 
-    expect(await runProposalList(root)).toContain("1. pending instruction update");
+    const list = await runProposalList(root);
+
+    expect(list).toContain("1. pending instruction update");
+    expect(list).toContain("request: No request summary recorded");
+    expect(list).toContain("preview: a");
     expect(await runProposalShow(root, "1")).toContain("+a");
     expect(await runProposalApprove(root, "1")).toBe("Approved instruction update");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("a");
     expect(await runProposalReject(root, "2")).toBe("Rejected instruction update");
+  });
+
+  it("lists proposal request summaries and change previews", async () => {
+    const root = await createTempRoot();
+
+    await createProposal(root, {
+      source: { kind: "learn", summary: "커밋할때 영어로 하기" },
+      canonical: canonical(""),
+      after: "# Instructions\n\n## Git\n- Write commit messages in English.\n"
+    });
+
+    const list = await runProposalList(root);
+
+    expect(list).toContain("1. pending instruction update");
+    expect(list).toContain("request: 커밋할때 영어로 하기");
+    expect(list).toContain("preview: # Instructions; ## Git; - Write commit messages in English.");
   });
 
   it("guides the user to choose a number when multiple pending proposals exist", async () => {

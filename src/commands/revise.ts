@@ -39,7 +39,7 @@ export async function runRevise(root: string, options: ReviseCommandOptions): Pr
   assertSafeProposalOutput(result.after);
 
   const proposal = await createProposal(root, {
-    source: { kind: options.kind ?? "revise", summary: result.summary },
+    source: { kind: options.kind ?? "revise", summary: options.notes },
     canonical,
     after: result.after
   });
