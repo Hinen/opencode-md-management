@@ -75,10 +75,11 @@ export function parseProposal(input: unknown): Proposal {
 }
 
 export async function createProposal(root: string, input: CreateProposalInput): Promise<Proposal> {
+  const { id, createdAt } = await createProposalId(root);
   const proposal = parseProposal({
     version: 1,
-    id: await createProposalId(root),
-    createdAt: new Date().toISOString(),
+    id,
+    createdAt,
     source: input.source,
     scopeId: "project",
     canonicalPath: input.canonical.path,
@@ -287,15 +288,26 @@ async function writeProposal(root: string, proposal: Proposal): Promise<void> {
   await rename(tempPath, path);
 }
 
-async function createProposalId(root: string): Promise<string> {
+let lastProposalTimestamp = 0;
+
+function nextProposalTimestamp(): number {
+  const now = Date.now();
+
+  lastProposalTimestamp = Math.max(now, lastProposalTimestamp + 1);
+
+  return lastProposalTimestamp;
+}
+
+async function createProposalId(root: string): Promise<{ id: string; createdAt: string }> {
   await mkdir(resolveInsideRoot(root, proposalsDirectory), { recursive: true });
 
   for (;;) {
-    const id = `${new Date().toISOString().replace(/[-:.TZ]/g, "")}-${Math.random().toString(16).slice(2, 8)}`;
+    const createdAt = new Date(nextProposalTimestamp()).toISOString();
+    const id = `${createdAt.replace(/[-:.TZ]/g, "")}-${Math.random().toString(16).slice(2, 8)}`;
     const existing = await readdir(resolveInsideRoot(root, proposalsDirectory));
 
     if (!existing.includes(`${id}.json`))
-      return id;
+      return { id, createdAt };
   }
 }
 
