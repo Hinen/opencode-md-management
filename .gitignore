@@ -3,6 +3,7 @@ dist/
 coverage/
 .agent-md/
 .agent-md.local/
+.omo/
 work-notes/
 PROJECT.md
 AGENTS.md
