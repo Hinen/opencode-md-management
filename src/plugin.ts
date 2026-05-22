@@ -3,6 +3,7 @@ import { runAudit } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
+import { runLink } from "./commands/link.js";
 import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
@@ -62,6 +63,7 @@ Never pass scope=all from this apply command.`,
     `Call agent_md_mirrors.
 If the user supplied --enable, pass those model/tool values as enable.
 If the user supplied --disable, pass those model/tool values as disable.
+If the user supplied --mode, pass it as mode.
 If the user supplied --scope, pass it as scope.`,
     true
   ),
@@ -126,6 +128,14 @@ If a reason is supplied, pass it as reason.`,
 If the untrusted arguments contain --older-than-days, pass olderThanDays.
 If the untrusted arguments contain --status, pass status.`,
     true
+  ),
+  [`${commandPrefix}:link`]: createCommand(
+    "Create symlink aliases from the canonical instruction file to a model file.",
+    `Call agent_md_link with model set to the chosen model.
+If the user supplied --no-apply, pass apply=false.
+If the user supplied --no-hierarchical, pass hierarchical=false.
+If the user supplied a scope, pass it as scope.`,
+    true
   )
 };
 
@@ -189,6 +199,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
       args: {
         enable: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to enable."),
         disable: tool.schema.array(tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"])).optional().describe("Mirror target models/tools to disable."),
+        mode: tool.schema.enum(["mirror", "symlink"]).optional().describe("Mode for newly-enabled targets."),
         scope: tool.schema.string().optional().describe("Scope for mirrors. MVP supports project only.")
       },
       async execute(args, context) {
@@ -282,6 +293,19 @@ export const OpencodeMdManagement: Plugin = async () => ({
       },
       async execute(args, context) {
         return runProposalGc(projectRoot(context), args);
+      }
+    }),
+
+    agent_md_link: tool({
+      description: "Create symlink aliases from the canonical AI instruction markdown file to a model file.",
+      args: {
+        model: tool.schema.enum(["opencode", "claude", "gemini", "codex", "copilot"]).describe("Model whose file to alias."),
+        apply: tool.schema.boolean().optional().describe("Materialize the symlink(s); default true."),
+        hierarchical: tool.schema.boolean().optional().describe("Walk nested AGENTS.md files; default true for claude/gemini."),
+        scope: tool.schema.string().optional().describe("Scope for link. MVP supports project only.")
+      },
+      async execute(args, context) {
+        return runLink(projectRoot(context), args);
       }
     })
   }

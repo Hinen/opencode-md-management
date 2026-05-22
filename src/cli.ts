@@ -6,6 +6,7 @@ import { runAuditReport } from "./commands/audit.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runInit } from "./commands/init.js";
 import { runLearn } from "./commands/learn.js";
+import { runLink } from "./commands/link.js";
 import { runMirrors } from "./commands/mirrors.js";
 import { runProposalApprove, runProposalGc, runProposalList, runProposalReject, runProposalShow } from "./commands/proposal.js";
 import { runRevise } from "./commands/revise.js";
@@ -70,11 +71,28 @@ export function createProgram(): Command {
     .description("Enable or disable project mirror targets")
     .option("--enable <model...>", "mirror target model/tool to enable (opencode|claude|gemini|codex|copilot)")
     .option("--disable <model...>", "mirror target model/tool to disable (opencode|claude|gemini|codex|copilot)")
+    .option("--mode <mode>", "mode for newly-enabled targets (mirror|symlink)")
     .option("--scope <scope>", "scope for mirrors (MVP supports project only)")
-    .action(async (options: { enable?: string[]; disable?: string[]; scope?: string }) => {
+    .action(async (options: { enable?: string[]; disable?: string[]; mode?: string; scope?: string }) => {
       console.log(await runMirrors(process.cwd(), {
         enable: parseInitMirrorOption(options.enable),
         disable: parseInitMirrorOption(options.disable),
+        mode: parseModeOption(options.mode),
+        scope: options.scope
+      }));
+    });
+
+  program.command("link")
+    .description("Create symlink aliases from the canonical instruction file to a model file")
+    .requiredOption("--model <model>", "model whose file to alias (opencode|claude|gemini|codex|copilot)")
+    .option("--no-apply", "update config but do not materialize the symlink(s)")
+    .option("--no-hierarchical", "skip nested AGENTS.md files (default: hierarchical for claude/gemini)")
+    .option("--scope <scope>", "scope to link (MVP supports project only)")
+    .action(async (options: { model: string; apply?: boolean; hierarchical?: boolean; scope?: string }) => {
+      console.log(await runLink(process.cwd(), {
+        model: parseRequiredInitModelOption(options.model),
+        apply: options.apply,
+        hierarchical: options.hierarchical,
         scope: options.scope
       }));
     });
@@ -197,4 +215,14 @@ function parseRequiredInitModelOption(value: string): InitModel {
     throw new Error(`Invalid model: ${value}`);
 
   return model;
+}
+
+export function parseModeOption(value: string | undefined): "mirror" | "symlink" | undefined {
+  if (value === undefined)
+    return undefined;
+
+  if (value === "mirror" || value === "symlink")
+    return value;
+
+  throw new Error(`Invalid mode: ${value}. Valid modes: mirror, symlink.`);
 }

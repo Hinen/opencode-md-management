@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createProgram } from "../src/cli.js";
+import { createProgram, parseModeOption } from "../src/cli.js";
 import { OpencodeMdManagement } from "../src/plugin.js";
 
 describe("createProgram", () => {
@@ -23,7 +23,8 @@ describe("createProgram", () => {
       "proposal:list",
       "proposal:approve",
       "proposal:reject",
-      "proposal:gc"
+      "proposal:gc",
+      "link"
     ]));
   });
 
@@ -34,6 +35,7 @@ describe("createProgram", () => {
     const audit = commands.find((command) => command.name() === "audit");
     const sync = commands.find((command) => command.name() === "sync");
     const mirrors = commands.find((command) => command.name() === "mirrors");
+    const link = commands.find((command) => command.name() === "link");
     const list = commands.find((command) => command.name() === "proposal:list");
     const reject = commands.find((command) => command.name() === "proposal:reject");
     const gc = commands.find((command) => command.name() === "proposal:gc");
@@ -46,7 +48,11 @@ describe("createProgram", () => {
     expect(doctor?.options.map((option) => option.long)).toContain("--scope");
     expect(audit?.options.map((option) => option.long)).toContain("--scope");
     expect(sync?.options.map((option) => option.long)).toContain("--scope");
-    expect(mirrors?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--enable", "--disable", "--scope"]));
+    expect(mirrors?.options.map((option) => option.long)).toEqual(expect.arrayContaining(["--enable", "--disable", "--scope", "--mode"]));
+    expect(link?.options.map((option) => option.long)).toContain("--model");
+    expect(link?.options.map((option) => option.long)).toContain("--scope");
+    expect(link?.options.map((option) => option.long)).toContain("--no-apply");
+    expect(link?.options.map((option) => option.long)).toContain("--no-hierarchical");
   });
 
   it("registers OpenCode plugin tools", async () => {
@@ -65,14 +71,16 @@ describe("createProgram", () => {
       "agent_md_proposal_list",
       "agent_md_proposal_approve",
       "agent_md_proposal_reject",
-      "agent_md_proposal_gc"
+      "agent_md_proposal_gc",
+      "agent_md_link"
     ]));
     expect(Object.keys(hooks.tool!.agent_md_init.args)).toContain("model");
     expect(Object.keys(hooks.tool!.agent_md_init.args)).toContain("mirrors");
     expect(Object.keys(hooks.tool!.agent_md_doctor.args)).toContain("scope");
     expect(Object.keys(hooks.tool!.agent_md_audit.args)).toContain("scope");
     expect(Object.keys(hooks.tool!.agent_md_sync.args)).toContain("scope");
-    expect(Object.keys(hooks.tool!.agent_md_mirrors.args)).toEqual(expect.arrayContaining(["enable", "disable", "scope"]));
+    expect(Object.keys(hooks.tool!.agent_md_mirrors.args)).toEqual(expect.arrayContaining(["enable", "disable", "scope", "mode"]));
+    expect(Object.keys(hooks.tool!.agent_md_link.args)).toEqual(expect.arrayContaining(["model", "apply", "hierarchical", "scope"]));
   });
 
   it("registers OpenCode slash commands through the config hook", async () => {
@@ -95,7 +103,8 @@ describe("createProgram", () => {
       "omm:proposal-show",
       "omm:proposal-approve",
       "omm:proposal-reject",
-      "omm:proposal-gc"
+      "omm:proposal-gc",
+      "omm:link"
     ]));
     expect(config.command["omm:init"].template).toContain("without asking the user to choose primary or mirror targets");
     expect(config.command["omm:init"].template).toContain("existing known instruction files are adopted automatically");
@@ -113,5 +122,13 @@ describe("createProgram", () => {
 
     expect(rendered.indexOf(injection)).toBeGreaterThan(rendered.indexOf("</command-instruction>"));
     expect(instruction).not.toContain(injection);
+  });
+
+  it("parseModeOption validates mode values", () => {
+    expect(parseModeOption(undefined)).toBeUndefined();
+    expect(parseModeOption("mirror")).toBe("mirror");
+    expect(parseModeOption("symlink")).toBe("symlink");
+    expect(() => parseModeOption("invalid")).toThrow("Invalid mode: invalid. Valid modes: mirror, symlink.");
+    expect(() => parseModeOption("")).toThrow("Invalid mode: . Valid modes: mirror, symlink.");
   });
 });
