@@ -4,6 +4,7 @@ import { z } from "zod";
 import { resolveCanonical } from "./canonical.js";
 import { hashContent } from "./hash.js";
 import { renderUnifiedDiff } from "./diff.js";
+import { applySyncPlan, createSyncPlan } from "./sync.js";
 import { writeCanonical } from "./writer.js";
 import type { AgentMdConfig, CanonicalFile } from "./types.js";
 import { assertParentChainInsideRoot, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
@@ -30,6 +31,7 @@ const proposalSchema = z.object({
 });
 
 export type Proposal = z.infer<typeof proposalSchema>;
+export type ApprovedProposal = Proposal & { syncedTargets: number };
 
 export class ProposalNotFoundError extends Error {
   readonly id: string;
@@ -148,11 +150,11 @@ export async function listProposals(root: string, options: ListProposalsOptions 
   return proposals;
 }
 
-export async function approveProposal(root: string, id: string, config: AgentMdConfig): Promise<Proposal> {
+export async function approveProposal(root: string, id: string, config: AgentMdConfig): Promise<ApprovedProposal> {
   const proposal = await showProposal(root, id);
 
   if (proposal.status === "approved")
-    return proposal;
+    return { ...proposal, syncedTargets: 0 };
 
   if (proposal.status !== "pending")
     throw new Error(`Cannot approve a ${proposal.status} proposal: ${id}`);
@@ -180,11 +182,26 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
     throw new Error(`Proposal is stale: ${id}`);
   }
 
+  const nextCanonical = {
+    path: canonical.path,
+    content: proposal.after,
+    hash: hashContent(proposal.after)
+  };
+  const syncPlan = await createSyncPlan(root, config, nextCanonical);
+  const changedTargets = syncPlan.targets.filter((target) => target.status !== "ok");
+  const conflict = changedTargets.find((target) => target.status === "conflict");
+
+  if (conflict)
+    throw new Error(`Target has drift and requires --force: ${conflict.path}`);
+
   await writeCanonical(canonical.path, proposal.after, {
     root,
     requireGitClean: config.sync.requireGitClean,
     backupDir: config.sync.backupDir
   });
+
+  if (changedTargets.length > 0)
+    await applySyncPlan(root, config, { ...syncPlan, targets: changedTargets }, { skipGitClean: true });
 
   const approved = parseProposal({
     ...proposal,
@@ -195,7 +212,7 @@ export async function approveProposal(root: string, id: string, config: AgentMdC
 
   await writeProposal(root, approved);
 
-  return approved;
+  return { ...approved, syncedTargets: changedTargets.length };
 }
 
 export async function rejectProposal(root: string, id: string, options: RejectProposalOptions = {}): Promise<Proposal> {

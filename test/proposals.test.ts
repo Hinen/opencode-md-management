@@ -80,6 +80,25 @@ describe("proposals", () => {
     expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
   });
 
+  it("rejects mirror drift before changing the canonical file", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
+    await runInit(root);
+    await writeFile(join(root, "CLAUDE.md"), "manual", "utf8");
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/Target has drift/);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
+    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("manual");
+  });
+
   it("rejects stale proposals", async () => {
     const root = await createTempRoot();
     const config = parseConfig({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } });

@@ -38,8 +38,8 @@ async function readTarget(root: string, path: string): Promise<string | undefine
   }
 }
 
-export async function createSyncPlan(root: string, config: AgentMdConfig): Promise<SyncPlan> {
-  const canonical = await resolveCanonical(root, config);
+export async function createSyncPlan(root: string, config: AgentMdConfig, canonicalOverride?: CanonicalFile): Promise<SyncPlan> {
+  const canonical = canonicalOverride ?? await resolveCanonical(root, config);
   const manifestPath = manifestPathForScope(config.scope.id);
   const manifest = await readManifest(root, manifestPath);
   const targets = await Promise.all(config.targets

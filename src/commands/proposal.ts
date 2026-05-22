@@ -8,7 +8,6 @@ import {
   showProposal,
   type Proposal
 } from "../core/proposals.js";
-import { applySyncPlan, createSyncPlan } from "../core/sync.js";
 
 const proposalStatuses: Proposal["status"][] = ["pending", "approved", "stale", "rejected"];
 const gcStatuses: Proposal["status"][] = ["approved", "stale", "rejected"];
@@ -20,15 +19,11 @@ export async function runProposalShow(root: string, id: string): Promise<string>
 export async function runProposalApprove(root: string, id: string): Promise<string> {
   const config = await loadConfig(root);
   const proposal = await approveProposal(root, id, config);
-  const plan = await createSyncPlan(root, config);
-  const changedTargets = plan.targets.filter((target) => target.status !== "ok");
 
-  if (changedTargets.length === 0)
+  if (proposal.syncedTargets === 0)
     return `Approved proposal ${proposal.id}`;
 
-  await applySyncPlan(root, config, { ...plan, targets: changedTargets }, { skipGitClean: true });
-
-  return `Approved proposal ${proposal.id}\nSynced ${changedTargets.length} target(s)`;
+  return `Approved proposal ${proposal.id}\nSynced ${proposal.syncedTargets} target(s)`;
 }
 
 export async function runProposalList(root: string, options: { status?: string; json?: boolean } = {}): Promise<string> {
