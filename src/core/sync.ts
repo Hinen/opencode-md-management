@@ -1,17 +1,19 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readFile, readlink, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { renderUnifiedDiff } from "./diff.js";
 import { hashContent } from "./hash.js";
 import { createManifest, manifestPathForScope, readManifest, writeManifest } from "./manifest.js";
 import { resolveCanonical } from "./canonical.js";
 import { atomicWrite } from "./writer.js";
-import type { AgentMdConfig, AgentMdManifest, CanonicalFile, ManifestTarget } from "./types.js";
+import type { AgentMdConfig, AgentMdManifest, AgentMdTarget, CanonicalFile, ManifestTarget, TargetMode } from "./types.js";
 import { assertGitClean } from "../util/git.js";
+import { computeLinkTargetRelative, ensureSymlink } from "../util/link.js";
 
 export type TargetStatus = "ok" | "missing" | "outdated" | "conflict";
 
 export type TargetSyncPlan = {
   path: string;
+  mode: TargetMode;
   status: TargetStatus;
   before: string;
   after: string;
@@ -45,26 +47,82 @@ export async function createSyncPlan(root: string, config: AgentMdConfig, canoni
   const targets = await Promise.all(config.targets
     .filter((target) => target.enabled)
     .map(async (target) => {
-      if (target.mode !== "mirror")
-        throw new Error(`Unsupported target mode: ${target.mode}`);
-
-      const before = await readTarget(root, target.path);
       const manifestTarget = manifest?.targets.find((entry) => entry.path === target.path);
-      const currentHash = before === undefined ? undefined : hashContent(before);
-      const status = getTargetStatus(before, currentHash, canonical.hash, manifestTarget);
 
-      return {
-        path: target.path,
-        status,
-        before: before ?? "",
-        after: canonical.content,
-        diff: renderUnifiedDiff(target.path, before ?? "", canonical.content),
-        currentHash,
-        lastSyncedHash: manifestTarget?.lastSyncedHash
-      } satisfies TargetSyncPlan;
+      if (target.mode === "symlink")
+        return planSymlinkTarget(root, target, canonical, manifestTarget);
+
+      return planMirrorTarget(root, target, canonical, manifestTarget);
     }));
 
   return { canonical, manifest, targets, manifestPath };
+}
+
+async function planMirrorTarget(root: string, target: AgentMdTarget, canonical: CanonicalFile, manifestTarget?: ManifestTarget): Promise<TargetSyncPlan> {
+  const before = await readTarget(root, target.path);
+  const currentHash = before === undefined ? undefined : hashContent(before);
+  const status = getTargetStatus(before, currentHash, canonical.hash, manifestTarget);
+
+  return {
+    path: target.path,
+    mode: "mirror",
+    status,
+    before: before ?? "",
+    after: canonical.content,
+    diff: renderUnifiedDiff(target.path, before ?? "", canonical.content),
+    currentHash,
+    lastSyncedHash: manifestTarget?.lastSyncedHash
+  };
+}
+
+async function planSymlinkTarget(root: string, target: AgentMdTarget, canonical: CanonicalFile, manifestTarget?: ManifestTarget): Promise<TargetSyncPlan> {
+  const expectedRel = computeLinkTargetRelative(target.path, canonical.path);
+  const inspection = await inspectSymlink(join(root, target.path));
+  const { status, currentInfo } = classifySymlinkStatus(inspection, expectedRel);
+
+  return {
+    path: target.path,
+    mode: "symlink",
+    status,
+    before: "",
+    after: "",
+    diff: `symlink: ${target.path} → ${expectedRel}${currentInfo}`,
+    lastSyncedHash: manifestTarget?.lastSyncedHash
+  };
+}
+
+type SymlinkInspection =
+  | { kind: "missing" }
+  | { kind: "regular-file" }
+  | { kind: "symlink"; target: string };
+
+async function inspectSymlink(linkPath: string): Promise<SymlinkInspection> {
+  try {
+    const stat = await lstat(linkPath);
+
+    if (!stat.isSymbolicLink())
+      return { kind: "regular-file" };
+
+    return { kind: "symlink", target: await readlink(linkPath) };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return { kind: "missing" };
+
+    throw error;
+  }
+}
+
+function classifySymlinkStatus(inspection: SymlinkInspection, expectedRel: string): { status: TargetStatus; currentInfo: string } {
+  if (inspection.kind === "missing")
+    return { status: "missing", currentInfo: "" };
+
+  if (inspection.kind === "regular-file")
+    return { status: "conflict", currentInfo: " (currently: regular file)" };
+
+  if (inspection.target === expectedRel)
+    return { status: "ok", currentInfo: "" };
+
+  return { status: "conflict", currentInfo: ` (currently: ${inspection.target})` };
 }
 
 export async function applySyncPlan(root: string, config: AgentMdConfig, plan: SyncPlan, options: { force?: boolean; skipGitClean?: boolean } = {}): Promise<AgentMdManifest> {
@@ -77,12 +135,19 @@ export async function applySyncPlan(root: string, config: AgentMdConfig, plan: S
     throw new Error(`Target has drift and requires --force: ${conflict.path}`);
 
   for (const target of plan.targets) {
-    if (target.status !== "ok")
-      await atomicWrite(target.path, target.after, {
-        root,
-        requireGitClean: false,
-        backupDir: config.sync.backupDir
-      });
+    if (target.status === "ok")
+      continue;
+
+    if (target.mode === "symlink") {
+      await applySymlinkTarget(root, target, plan.canonical, options.force ?? false);
+      continue;
+    }
+
+    await atomicWrite(target.path, target.after, {
+      root,
+      requireGitClean: false,
+      backupDir: config.sync.backupDir
+    });
   }
 
   const manifest = mergeManifest(plan.manifest, plan.canonical, plan.targets, {
@@ -95,6 +160,19 @@ export async function applySyncPlan(root: string, config: AgentMdConfig, plan: S
   await writeManifest(root, manifest, plan.manifestPath);
 
   return manifest;
+}
+
+async function applySymlinkTarget(root: string, target: TargetSyncPlan, canonical: CanonicalFile, force: boolean): Promise<void> {
+  const outcome = await ensureSymlink(root, target.path, canonical.path);
+
+  if (outcome !== "conflict-regular-file")
+    return;
+
+  if (!force)
+    throw new Error(`Target has drift and requires --force: ${target.path}`);
+
+  await rm(join(root, target.path), { force: true });
+  await ensureSymlink(root, target.path, canonical.path);
 }
 
 function getTargetStatus(before: string | undefined, currentHash: string | undefined, canonicalHash: string, manifestTarget?: ManifestTarget): TargetStatus {
@@ -124,8 +202,8 @@ export function mergeManifest(previous: AgentMdManifest | undefined, canonical: 
   for (const target of appliedTargets) {
     targets.set(target.path, {
       path: target.path,
-      mode: "mirror",
-      lastSyncedHash: canonical.hash
+      mode: target.mode,
+      lastSyncedHash: target.mode === "symlink" ? "symlink" : canonical.hash
     });
   }
 
