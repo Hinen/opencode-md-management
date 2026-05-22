@@ -82,26 +82,27 @@ Inspect the current canonical instruction markdown, integrate the learning notes
     true
   ),
   [`${commandPrefix}:proposals`]: createCommand(
-    "List stored AI instruction markdown proposals.",
+    "List instruction updates waiting for review or already handled.",
     `Call agent_md_proposal_list.
-If the untrusted arguments contain a status, pass it as status.`,
+If the untrusted arguments contain a status, pass it as status.
+Report the numbered list as the user's review queue and explain that the number can be used with /omm:proposal-show, /omm:proposal-approve, or /omm:proposal-reject.`,
     true
   ),
   [`${commandPrefix}:proposal-show`]: createCommand(
     "Show a stored AI instruction markdown proposal diff.",
-    `If the untrusted arguments contain an id, pass it to agent_md_proposal_show.
+    `If the untrusted arguments contain a number or id, pass it to agent_md_proposal_show as id.
 Otherwise call agent_md_proposal_show without id to show the only pending instruction update.`,
     true
   ),
   [`${commandPrefix}:proposal-approve`]: createCommand(
     "Approve a stored proposal and sync enabled mirror targets.",
-    `If the untrusted arguments contain an id, pass it to agent_md_proposal_approve.
+    `If the untrusted arguments contain a number or id, pass it to agent_md_proposal_approve as id.
 Otherwise call agent_md_proposal_approve without id to approve the only pending instruction update.`,
     true
   ),
   [`${commandPrefix}:proposal-reject`]: createCommand(
     "Reject a stored AI instruction markdown proposal.",
-    `If the untrusted arguments contain an id, pass it to agent_md_proposal_reject.
+    `If the untrusted arguments contain a number or id, pass it to agent_md_proposal_reject as id.
 Otherwise call agent_md_proposal_reject without id to reject the only pending instruction update.
 If a reason is supplied, pass it as reason.`,
     true
@@ -210,7 +211,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_proposal_show: tool({
       description: "Show a stored AI instruction markdown proposal diff.",
       args: {
-        id: tool.schema.string().optional().describe("Proposal id. If omitted, the only pending instruction update is used.")
+        id: tool.schema.string().optional().describe("Instruction update number from /omm:proposals, or proposal id. If omitted, the only pending instruction update is used.")
       },
       async execute(args, context) {
         return runProposalShow(projectRoot(context), args.id);
@@ -218,7 +219,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
     }),
 
     agent_md_proposal_list: tool({
-      description: "List stored AI instruction markdown proposals.",
+      description: "List instruction updates waiting for review or already handled.",
       args: {
         status: tool.schema.string().optional().describe("Filter by status: pending|approved|stale|rejected."),
         json: tool.schema.boolean().optional().describe("Return a JSON array instead of tab-delimited text.")
@@ -231,7 +232,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_proposal_approve: tool({
       description: "Approve a stored proposal and sync enabled mirror targets if it is not stale.",
       args: {
-        id: tool.schema.string().optional().describe("Proposal id. If omitted, the only pending instruction update is used.")
+        id: tool.schema.string().optional().describe("Instruction update number from /omm:proposals, or proposal id. If omitted, the only pending instruction update is used.")
       },
       async execute(args, context) {
         return runProposalApprove(projectRoot(context), args.id);
@@ -241,7 +242,7 @@ export const OpencodeMdManagement: Plugin = async () => ({
     agent_md_proposal_reject: tool({
       description: "Reject a stored AI instruction markdown proposal.",
       args: {
-        id: tool.schema.string().optional().describe("Proposal id. If omitted, the only pending instruction update is used."),
+        id: tool.schema.string().optional().describe("Instruction update number from /omm:proposals, or proposal id. If omitted, the only pending instruction update is used."),
         reason: tool.schema.string().optional().describe("Human-readable rejection reason.")
       },
       async execute(args, context) {

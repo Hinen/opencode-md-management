@@ -97,9 +97,9 @@ export function createProgram(): Command {
 
   program.command("proposal:show")
     .description("Show a stored proposal diff")
-    .argument("[id]", "proposal id (optional; uses the only pending update if omitted)")
-    .action(async (id: string | undefined) => {
-      console.log(await runProposalShow(process.cwd(), id));
+    .argument("[selection]", "instruction update number from proposal:list, or proposal id; uses the only pending update if omitted")
+    .action(async (selection: string | undefined) => {
+      console.log(await runProposalShow(process.cwd(), selection));
     });
 
   program.command("proposal:list")
@@ -112,17 +112,17 @@ export function createProgram(): Command {
 
   program.command("proposal:approve")
     .description("Approve a stored proposal and sync enabled mirror targets")
-    .argument("[id]", "proposal id (optional; uses the only pending update if omitted)")
-    .action(async (id: string | undefined) => {
-      console.log(await runProposalApprove(process.cwd(), id));
+    .argument("[selection]", "instruction update number from proposal:list, or proposal id; uses the only pending update if omitted")
+    .action(async (selection: string | undefined) => {
+      console.log(await runProposalApprove(process.cwd(), selection));
     });
 
   program.command("proposal:reject")
     .description("Reject a stored proposal")
-    .argument("[id]", "proposal id (optional; uses the only pending update if omitted)")
+    .argument("[selection]", "instruction update number from proposal:list, or proposal id; uses the only pending update if omitted")
     .option("--reason <text>", "human-readable rejection reason")
-    .action(async (id: string | undefined, options: { reason?: string }) => {
-      console.log(await runProposalReject(process.cwd(), id, options));
+    .action(async (selection: string | undefined, options: { reason?: string }) => {
+      console.log(await runProposalReject(process.cwd(), selection, options));
     });
 
   program.command("proposal:gc")
