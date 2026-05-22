@@ -85,7 +85,8 @@ Inspect the current canonical instruction markdown, integrate the learning notes
     "List instruction updates waiting for review or already handled.",
     `Call agent_md_proposal_list.
 If the untrusted arguments contain a status, pass it as status.
-Report the numbered list as the user's review queue and explain that the number can be used with /omm:proposal-show, /omm:proposal-approve, or /omm:proposal-reject.`,
+Report the numbered list as the user's review queue and explain that the number can be used with /omm:proposal-show, /omm:proposal-approve, or /omm:proposal-reject.
+Report the request and preview lines so the user can identify what each instruction update is about without opening the diff.`,
     true
   ),
   [`${commandPrefix}:proposal-show`]: createCommand(
