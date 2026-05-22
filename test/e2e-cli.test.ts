@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -140,6 +140,7 @@ describe("CLI workflow handlers", () => {
 
     await writeFile(join(root, "CLAUDE.md"), "# Rules\n", "utf8");
     await runInit(root, { model: "claude", aliases: ["opencode"] });
+    await rm(join(root, "AGENTS.md"));
 
     const preview = await runSync(root);
 
