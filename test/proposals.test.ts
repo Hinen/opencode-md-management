@@ -1,11 +1,13 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readlink, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runInit } from "../src/commands/init.js";
 import { runProposalApprove, runProposalList, runProposalReject, runProposalShow } from "../src/commands/proposal.js";
+import { runSync } from "../src/commands/sync.js";
 import { parseConfig } from "../src/core/config.js";
 import { hashContent } from "../src/core/hash.js";
+import { ensureSymlink } from "../src/util/link.js";
 import {
   ProposalNotFoundError,
   approveProposal,
@@ -29,6 +31,25 @@ function canonical(content = "rules") {
 async function overwriteProposal(root: string, proposal: Proposal): Promise<void> {
   await writeFile(join(root, ".agent-md", "proposals", `${proposal.id}.json`), `${JSON.stringify(proposal, null, 2)}\n`, "utf8");
 }
+
+async function canCreateSymlink(): Promise<boolean> {
+  const root = await createTempRoot();
+  await writeFile(join(root, "target.md"), "rules", "utf8");
+
+  try {
+    await symlink("target.md", join(root, "link.md"));
+
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EPERM")
+      return false;
+
+    throw error;
+  }
+}
+
+const canCreateWindowsSymlink = process.platform === "win32" ? await canCreateSymlink() : true;
+const symlinkIt = it.skipIf(process.platform === "win32" && !canCreateWindowsSymlink);
 
 describe("proposals", () => {
   it("creates and shows pending proposals", async () => {
@@ -335,6 +356,69 @@ describe("proposals", () => {
 
   it("throws ProposalNotFoundError for unknown proposal ids", async () => {
     await expect(showProposal(await createTempRoot(), "missing-id")).rejects.toBeInstanceOf(ProposalNotFoundError);
+  });
+
+  symlinkIt("approves proposal and preserves an already-correct symlink alias", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [{ path: "CLAUDE.md", mode: "symlink", enabled: true }], sync: { requireGitClean: false } }), "utf8");
+    await ensureSymlink(root, "CLAUDE.md", "AGENTS.md");
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    expect(await runProposalApprove(root, proposal.id)).toBe("Approved instruction update");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
+    expect(await readlink(join(root, "CLAUDE.md"))).toBe("AGENTS.md");
+    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
+  });
+
+  symlinkIt("approves proposal and creates a missing symlink alias", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [{ path: "CLAUDE.md", mode: "symlink", enabled: true }], sync: { requireGitClean: false } }), "utf8");
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    expect(await runProposalApprove(root, proposal.id)).toBe("Approved instruction update\nSynced 1 target(s)");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
+    expect(await readlink(join(root, "CLAUDE.md"))).toBe("AGENTS.md");
+    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
+
+    const manifest = JSON.parse(await readFile(join(root, ".agent-md", "manifest.json"), "utf8"));
+    const claudeEntry = manifest.targets.find((t: { path: string }) => t.path === "CLAUDE.md");
+
+    expect(claudeEntry?.mode).toBe("symlink");
+    expect(claudeEntry?.lastSyncedHash).toBe("symlink");
+  });
+
+  symlinkIt("rejects approval when symlink alias points to wrong target, force-sync fixes it", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [{ path: "CLAUDE.md", mode: "symlink", enabled: true }], sync: { requireGitClean: false } }), "utf8");
+    await symlink("WRONG.md", join(root, "CLAUDE.md"));
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    await expect(runProposalApprove(root, proposal.id)).rejects.toThrow(/CLAUDE\.md.*local edits since the last sync/);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules");
+
+    await runSync(root, { apply: true, force: true });
+    expect(await readlink(join(root, "CLAUDE.md"))).toBe("AGENTS.md");
   });
 
   it("rejectProposal moves pending proposals to rejected and records the reason", async () => {
