@@ -12,13 +12,13 @@ import {
 const proposalStatuses: Proposal["status"][] = ["pending", "approved", "stale", "rejected"];
 const gcStatuses: Proposal["status"][] = ["approved", "stale", "rejected"];
 
-export async function runProposalShow(root: string, id?: string): Promise<string> {
-  return renderProposalForReview(await showProposal(root, id ?? await singlePendingProposalId(root)));
+export async function runProposalShow(root: string, selector?: string): Promise<string> {
+  return renderProposalForReview(await showProposal(root, await resolvePendingProposalId(root, selector)));
 }
 
-export async function runProposalApprove(root: string, id?: string): Promise<string> {
+export async function runProposalApprove(root: string, selector?: string): Promise<string> {
   const config = await loadConfig(root);
-  const proposal = await approveProposal(root, id ?? await singlePendingProposalId(root), config);
+  const proposal = await approveProposal(root, await resolvePendingProposalId(root, selector), config);
 
   if (proposal.syncedTargets === 0)
     return "Approved instruction update";
@@ -42,15 +42,23 @@ export async function runProposalList(root: string, options: { status?: string; 
   }
 
   if (proposals.length === 0)
-    return "No proposals found";
+    return "No instruction updates found";
 
-  return proposals
-    .map((proposal) => `${proposal.id}\t${proposal.status}\t${proposal.createdAt}\t${proposal.source.kind}\t${proposal.canonicalPath}`)
-    .join("\n");
+  const lines = proposals.map((proposal, index) => [
+    `${index + 1}. ${proposal.status} instruction update`,
+    `   file: ${proposal.canonicalPath}`,
+    `   source: ${proposal.source.kind}`,
+    `   created: ${proposal.createdAt}`
+  ].join("\n"));
+
+  if (proposals.some((proposal) => proposal.status === "pending"))
+    lines.push("", "Use /omm:proposal-show 1 to review, /omm:proposal-approve 1 to apply, or /omm:proposal-reject 1 to discard.");
+
+  return lines.join("\n");
 }
 
-export async function runProposalReject(root: string, id?: string, options: { reason?: string } = {}): Promise<string> {
-  const rejected = await rejectProposal(root, id ?? await singlePendingProposalId(root), { reason: options.reason });
+export async function runProposalReject(root: string, selector?: string, options: { reason?: string } = {}): Promise<string> {
+  await rejectProposal(root, await resolvePendingProposalId(root, selector), { reason: options.reason });
 
   return "Rejected instruction update";
 }
@@ -84,14 +92,31 @@ function parseStatusOption(status: string | undefined, allowed: Proposal["status
   return parsed as Proposal["status"][];
 }
 
-async function singlePendingProposalId(root: string): Promise<string> {
+async function resolvePendingProposalId(root: string, selector: string | undefined): Promise<string> {
+  if (selector && !isPositiveInteger(selector))
+    return selector;
+
+  if (selector) {
+    const proposals = await listProposals(root);
+    const index = Number.parseInt(selector, 10) - 1;
+
+    if (index < 0 || index >= proposals.length)
+      throw new Error(`No instruction update numbered ${selector}. Run /omm:proposals to see available updates.`);
+
+    return proposals[index].id;
+  }
+
   const proposals = await listProposals(root, { status: "pending" });
 
   if (proposals.length === 0)
     throw new Error("No pending instruction updates found");
 
   if (proposals.length > 1)
-    throw new Error("Multiple pending instruction updates found. Run /omm:proposals and pass an id explicitly.");
+    throw new Error("Multiple pending instruction updates found. Run /omm:proposals and pass a number, for example /omm:proposal-show 1.");
 
   return proposals[0].id;
+}
+
+function isPositiveInteger(value: string): boolean {
+  return /^[1-9]\d*$/.test(value);
 }

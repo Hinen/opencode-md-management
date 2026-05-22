@@ -75,20 +75,17 @@ describe("plugin tools", () => {
 
     await hooks.tool!.agent_md_revise.execute({ notes: "Prefer small diffs" }, context);
     const list = await hooks.tool!.agent_md_proposal_list.execute({}, context);
-    const match = list.match(/^([a-zA-Z0-9-]+)\t/m);
-
-    if (!match)
-      throw new Error(`Proposal id not found in output: ${list}`);
-
-    const id = match[1];
-
-    expect(await hooks.tool!.agent_md_proposal_list.execute({}, context)).toContain(id);
-
     const json = JSON.parse(await hooks.tool!.agent_md_proposal_list.execute({ json: true }, context));
+    const id = json[0].id;
+
+    expect(list).toContain("1. pending instruction update");
+    expect(list).toContain("Use /omm:proposal-show 1 to review");
+    expect(list).not.toContain(id);
 
     expect(json).toEqual([expect.objectContaining({ id, status: "pending", source: expect.objectContaining({ kind: "revise" }), canonicalPath: "AGENTS.md" })]);
     expect(await hooks.tool!.agent_md_proposal_reject.execute({ reason: "obsolete" }, context)).toBe("Rejected instruction update");
-    expect(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected" }, context)).toContain(`${id}\trejected`);
+    expect(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected" }, context)).toContain("1. rejected instruction update");
+    expect(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected" }, context)).not.toContain(id);
 
     const rejectedJson = JSON.parse(await hooks.tool!.agent_md_proposal_list.execute({ status: "rejected", json: true }, context));
 

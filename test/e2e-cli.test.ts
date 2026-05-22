@@ -12,15 +12,6 @@ async function createTempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "opencode-md-management-"));
 }
 
-function proposalId(output: string): string {
-  const match = output.match(/^([a-zA-Z0-9-]+)\t/m);
-
-  if (!match)
-    throw new Error(`Proposal id not found in output: ${output}`);
-
-  return match[1];
-}
-
 describe("CLI workflow handlers", () => {
   it("creates, shows, and approves a revise proposal", async () => {
     const root = await createTempRoot();
@@ -46,36 +37,41 @@ describe("CLI workflow handlers", () => {
     await runInit(root);
 
     await runRevise(root, { notes: "First change" });
-    const first = proposalId(await runProposalList(root));
+    const [firstJson] = JSON.parse(await runProposalList(root, { json: true }));
     await runLearn(root, { notes: "Second change" });
     const list = await runProposalList(root);
-    const second = list.split("\n").map((line) => line.split("\t")[0]).find((id) => id !== first)!;
+    const [first, second] = JSON.parse(await runProposalList(root, { json: true }));
 
-    expect(list).toContain(first);
-    expect(list).toContain(second);
+    expect(first.id).toBe(firstJson.id);
+    expect(list).toContain("1. pending instruction update");
+    expect(list).toContain("2. pending instruction update");
+    expect(list).toContain("Use /omm:proposal-show 1 to review");
+    expect(list).not.toContain(first.id);
+    expect(list).not.toContain(second.id);
 
     const json = JSON.parse(await runProposalList(root, { json: true }));
 
     expect(json).toEqual([
-      expect.objectContaining({ id: first, status: "pending", source: expect.objectContaining({ kind: "revise" }), canonicalPath: "AGENTS.md" }),
-      expect.objectContaining({ id: second, status: "pending", source: expect.objectContaining({ kind: "learn" }), canonicalPath: "AGENTS.md" })
+      expect.objectContaining({ id: first.id, status: "pending", source: expect.objectContaining({ kind: "revise" }), canonicalPath: "AGENTS.md" }),
+      expect.objectContaining({ id: second.id, status: "pending", source: expect.objectContaining({ kind: "learn" }), canonicalPath: "AGENTS.md" })
     ]);
     expect(json[0]).toHaveProperty("createdAt");
 
-    expect(await runProposalReject(root, first, { reason: "obsolete" })).toBe("Rejected instruction update");
-    expect(await runProposalList(root, { status: "rejected" })).toContain(`${first}\trejected`);
+    expect(await runProposalReject(root, "1", { reason: "obsolete" })).toBe("Rejected instruction update");
+    expect(await runProposalList(root, { status: "rejected" })).toContain("1. rejected instruction update");
+    expect(await runProposalList(root, { status: "rejected" })).not.toContain(first.id);
 
     const rejectedJson = JSON.parse(await runProposalList(root, { status: "rejected", json: true }));
 
     expect(rejectedJson).toHaveLength(1);
-    expect(rejectedJson[0]).toEqual(expect.objectContaining({ id: first, status: "rejected" }));
+    expect(rejectedJson[0]).toEqual(expect.objectContaining({ id: first.id, status: "rejected" }));
 
-    await runProposalApprove(root, second);
+    await runProposalApprove(root, "2");
 
     const gc = await runProposalGc(root, { olderThanDays: 0 });
 
     expect(gc).toContain("Deleted 2 proposals");
-    expect(await runProposalList(root)).toBe("No proposals found");
+    expect(await runProposalList(root)).toBe("No instruction updates found");
     expect(await runProposalList(root, { json: true })).toBe("[]");
   });
 

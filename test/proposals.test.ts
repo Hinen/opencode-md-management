@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runInit } from "../src/commands/init.js";
-import { runProposalApprove, runProposalReject, runProposalShow } from "../src/commands/proposal.js";
+import { runProposalApprove, runProposalList, runProposalReject, runProposalShow } from "../src/commands/proposal.js";
 import { parseConfig } from "../src/core/config.js";
 import { hashContent } from "../src/core/hash.js";
 import {
@@ -105,7 +105,23 @@ describe("proposals", () => {
     expect(await runProposalReject(root)).toBe("Rejected instruction update");
   });
 
-  it("requires an explicit proposal id when pending proposals are ambiguous", async () => {
+  it("uses numbered selections when pending proposals are ambiguous", async () => {
+    const root = await createTempRoot();
+    const input = canonical();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, ".agent-md.json"), JSON.stringify({ canonical: "AGENTS.md", targets: [], sync: { requireGitClean: false } }), "utf8");
+    await createProposal(root, { source: { kind: "revise" }, canonical: input, after: "a" });
+    await createProposal(root, { source: { kind: "learn" }, canonical: input, after: "b" });
+
+    expect(await runProposalList(root)).toContain("1. pending instruction update");
+    expect(await runProposalShow(root, "1")).toContain("+a");
+    expect(await runProposalApprove(root, "1")).toBe("Approved instruction update");
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("a");
+    expect(await runProposalReject(root, "2")).toBe("Rejected instruction update");
+  });
+
+  it("guides the user to choose a number when multiple pending proposals exist", async () => {
     const root = await createTempRoot();
     const input = canonical();
 
@@ -113,9 +129,10 @@ describe("proposals", () => {
     await createProposal(root, { source: { kind: "revise" }, canonical: input, after: "a" });
     await createProposal(root, { source: { kind: "learn" }, canonical: input, after: "b" });
 
-    await expect(runProposalShow(root)).rejects.toThrow(/Multiple pending instruction updates/);
-    await expect(runProposalApprove(root)).rejects.toThrow(/Multiple pending instruction updates/);
-    await expect(runProposalReject(root)).rejects.toThrow(/Multiple pending instruction updates/);
+    await expect(runProposalShow(root)).rejects.toThrow(/pass a number/);
+    await expect(runProposalApprove(root)).rejects.toThrow(/pass a number/);
+    await expect(runProposalReject(root)).rejects.toThrow(/pass a number/);
+    await expect(runProposalShow(root, "3")).rejects.toThrow(/No instruction update numbered 3/);
   });
 
   it("reports no pending proposal for id-free lifecycle commands", async () => {
