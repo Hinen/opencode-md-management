@@ -15,7 +15,7 @@ export type InitCommandOptions = {
   adopt?: boolean;
 };
 
-const canonicalByModel: Record<InitModel, string> = {
+export const canonicalByModel: Record<InitModel, string> = {
   opencode: "AGENTS.md",
   claude: "CLAUDE.md",
   gemini: "GEMINI.md",
