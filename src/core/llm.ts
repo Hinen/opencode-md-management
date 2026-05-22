@@ -36,8 +36,8 @@ export function assertSafeProposalOutput(output: string): void {
 
 function wrapUntrustedNotes(notes: string): string {
   return [
-    "<!-- agent-md: untrusted notes begin -->",
+    "<!-- omm: untrusted notes begin -->",
     notes,
-    "<!-- agent-md: untrusted notes end -->"
+    "<!-- omm: untrusted notes end -->"
   ].join("\n");
 }
