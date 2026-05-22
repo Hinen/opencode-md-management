@@ -73,7 +73,10 @@ describe("symlink utilities", () => {
 
     expect(computeLinkTargetRelative(".codex/AGENTS.md", "AGENTS.md")).toBe("../AGENTS.md");
     await expect(ensureSymlink(root, ".codex/AGENTS.md", "AGENTS.md")).resolves.toBe("created");
-    await expect(readlink(join(root, ".codex", "AGENTS.md"))).resolves.toBe("../AGENTS.md");
+
+    const stored = await readlink(join(root, ".codex", "AGENTS.md"));
+
+    expect(stored.replace(/\\/g, "/")).toBe("../AGENTS.md");
   });
 
   it("rejects link paths outside the root", async () => {
