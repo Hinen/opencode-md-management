@@ -13,8 +13,13 @@ export async function runSync(root: string, options: SyncCommandOptions = {}): P
   const scopedConfig = scope.config!;
   const plan = await createSyncPlan(scope.root, scopedConfig);
 
-  if (options.target && !plan.targets.some((target) => target.path === options.target))
-    throw new Error(`Unknown target: ${options.target}`);
+  if (options.target && !plan.targets.some((target) => target.path === options.target)) {
+    const available = plan.targets.map((target) => target.path).join(", ");
+
+    throw new Error(available.length === 0
+      ? `Unknown sync target: ${options.target}. No mirror targets are enabled yet.`
+      : `Unknown sync target: ${options.target}. Available targets: ${available}.`);
+  }
 
   const targets = options.target ? plan.targets.filter((target) => target.path === options.target) : plan.targets;
   const scopedPlan = { ...plan, targets };

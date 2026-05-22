@@ -92,7 +92,7 @@ describe("CLI workflow handlers", () => {
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
     await runInit(root);
 
-    await expect(runSync(root, { target: "NOPE.md" })).rejects.toThrow(/Unknown target/);
+    await expect(runSync(root, { target: "NOPE.md" })).rejects.toThrow(/Unknown sync target/);
   });
 
   it("rejects sync across multiple scopes", async () => {
@@ -102,7 +102,7 @@ describe("CLI workflow handlers", () => {
     await writeFile(join(root, ".claude.local.md"), "# Local\n", "utf8");
     await runInit(root);
 
-    await expect(runSync(root, { scope: "all" })).rejects.toThrow(/single scope/);
+    await expect(runSync(root, { scope: "all" })).rejects.toThrow(/Cannot write to all instruction file scopes/);
   });
 
   it("sync only sees explicitly enabled init mirrors", async () => {
