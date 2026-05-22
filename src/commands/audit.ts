@@ -1,7 +1,7 @@
 import { resolveCanonical } from "../core/canonical.js";
 import { auditMarkdown, scoreMarkdownQuality } from "../core/audit-rules.js";
 import { parseConfig } from "../core/config.js";
-import { discoverScopes, type ScopeContext, type ScopeSelection } from "../core/scope-context.js";
+import { discoverScopes, formatScopeIdForUser, type ScopeContext, type ScopeSelection } from "../core/scope-context.js";
 import { createSyncPlan } from "../core/sync.js";
 
 export type AuditReport = {
@@ -35,7 +35,7 @@ async function auditScope(scope: ScopeContext): Promise<AuditReport> {
     canonical = await resolveCanonical(scope.root, config);
   } catch (error) {
     if (error instanceof Error)
-      return { output: [`scope: ${displayScopeId(scope.id)}`, `${scope.primary} [inventory-only]`, `No adopted config`, `error: ${error.message}`].join("\n"), hasErrors: false };
+      return { output: [`scope: ${formatScopeIdForUser(scope.id)}`, `${scope.primary} [detected]`, `Not managed yet`, `error: ${error.message}`].join("\n"), hasErrors: false };
 
     throw error;
   }
@@ -43,7 +43,7 @@ async function auditScope(scope: ScopeContext): Promise<AuditReport> {
   const findings = auditMarkdown(canonical.content, config.audit);
   const quality = scoreMarkdownQuality(canonical.content, findings);
   const qualityOutput = [
-    `scope: ${displayScopeId(scope.id)}`,
+    `scope: ${formatScopeIdForUser(scope.id)}`,
     `${canonical.path} quality: ${quality.score}/100 (${quality.grade})`,
     ...quality.criteria.map((criterion) => `${criterion.name}: ${criterion.score}/${criterion.maxScore} - ${criterion.message}`),
     ...await targetStatusOutput(scope, config)
@@ -71,8 +71,4 @@ async function targetStatusOutput(scope: ScopeContext, config: ReturnType<typeof
     return [];
 
   return ["Targets:", ...plan.targets.map((target) => `${target.path}: ${target.status}`)];
-}
-
-function displayScopeId(id: string): string {
-  return id.startsWith("nested:") ? id.slice("nested:".length) : id;
 }

@@ -42,27 +42,27 @@ export async function discoverScopes(root: string, selection: ScopeSelection = u
   const selected = scopes.filter((scope) => scope.id === selection || scope.id === normalizeLegacySelection(selection));
 
   if (selected.length === 0)
-    throw new Error(`Unknown scope: ${selection}`);
+    throw new Error(`Unknown instruction file scope: ${selection}. Run doctor --scope all to see detected scopes.`);
 
   return selected;
 }
 
 export async function requireWritableScope(root: string, selection: ScopeSelection): Promise<ScopeContext> {
   if (selection === "all")
-    throw new Error("scope=all is read-only and write commands require a single scope. Pass --scope <scope>.");
+    throw new Error("Cannot write to all instruction file scopes at once. Pass --scope project, --scope local, or one specific global scope.");
 
   const scopes = await discoverScopes(root, selection);
 
   if (scopes.length !== 1)
-    throw new Error("write commands require a single scope. Pass --scope <scope> instead of --scope all.");
+    throw new Error("Write commands need one instruction file scope. Pass --scope project, --scope local, or one specific global scope.");
 
   const scope = scopes[0];
 
   if (!scope.adopted || !scope.config)
-    throw new Error(`Scope is not adopted: ${scope.id}. Run init --scope ${scope.id} first.`);
+    throw new Error(`${formatScopeForUser(scope)} is detected but not managed yet. Run init --scope ${scope.id} --adopt first.`);
 
   if (scope.writePolicy !== "writable")
-    throw new Error(`Scope is read-only: ${scope.id}`);
+    throw new Error(`${formatScopeForUser(scope)} is read-only for this command.`);
 
   return scope;
 }
@@ -105,6 +105,26 @@ export function defaultPrimaryForScope(id: string): string {
     return ".claude.local.md";
 
   return "AGENTS.md";
+}
+
+export function formatScopeIdForUser(id: string): string {
+  if (id === "project")
+    return "project";
+
+  if (id === "local")
+    return "local";
+
+  if (id.startsWith("global:"))
+    return `${id.slice("global:".length)} global`;
+
+  if (id.startsWith("nested:"))
+    return id.slice("nested:".length);
+
+  return id;
+}
+
+function formatScopeForUser(scope: ScopeContext): string {
+  return `${formatScopeIdForUser(scope.id)} instruction file`;
 }
 
 async function projectScope(root: string): Promise<ScopeContext> {

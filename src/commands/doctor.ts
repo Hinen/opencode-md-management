@@ -1,4 +1,4 @@
-import { discoverScopes, type ScopeSelection } from "../core/scope-context.js";
+import { discoverScopes, formatScopeIdForUser, type ScopeSelection } from "../core/scope-context.js";
 import { manifestPathForScope, readManifest } from "../core/manifest.js";
 import { createSyncPlan } from "../core/sync.js";
 
@@ -11,13 +11,13 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
   const output: string[] = [];
 
   for (const scope of scopes) {
-    const lines = [`scope: ${displayScopeId(scope.id)} ${scope.root}`, `  primary: ${scope.primary} [${scope.adopted ? "adopted" : "inventory-only"}]`];
+    const lines = [`scope: ${formatScopeIdForUser(scope.id)} ${scope.root}`, `  primary: ${scope.primary} [${scope.adopted ? "managed" : "detected"}]`];
 
     if (!scope.adopted || !scope.config) {
       lines.push("  manifest: missing", "  targets:");
 
       if (scope.kind === "global")
-        lines.push(`  hint: run /omm:init --scope ${scope.id} --adopt to manage this global file.`);
+        lines.push(`  hint: run /omm:init --scope ${scope.id} --adopt to manage this file.`);
 
       if (scope.overridePath)
         lines.push(`  override: ${scope.overridePath} [read-only]`);
@@ -54,8 +54,4 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
   }
 
   return output.join("\n");
-}
-
-function displayScopeId(id: string): string {
-  return id.startsWith("nested:") ? id.slice("nested:".length) : id;
 }
