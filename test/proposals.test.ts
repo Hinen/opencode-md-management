@@ -2,6 +2,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { runInit } from "../src/commands/init.js";
+import { runProposalApprove } from "../src/commands/proposal.js";
 import { parseConfig } from "../src/core/config.js";
 import { hashContent } from "../src/core/hash.js";
 import {
@@ -58,6 +60,24 @@ describe("proposals", () => {
 
     expect(approved.status).toBe("approved");
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
+  });
+
+  it("syncs enabled mirror targets after command approval", async () => {
+    const root = await createTempRoot();
+
+    await writeFile(join(root, "AGENTS.md"), "rules", "utf8");
+    await writeFile(join(root, "CLAUDE.md"), "rules", "utf8");
+    await runInit(root);
+
+    const proposal = await createProposal(root, {
+      source: { kind: "revise" },
+      canonical: { path: "AGENTS.md", content: "rules", hash: hashContent("rules") },
+      after: "rules\nmore"
+    });
+
+    expect(await runProposalApprove(root, proposal.id)).toBe(`Approved proposal ${proposal.id}\nSynced 1 target(s)`);
+    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("rules\nmore");
+    expect(await readFile(join(root, "CLAUDE.md"), "utf8")).toBe("rules\nmore");
   });
 
   it("rejects stale proposals", async () => {

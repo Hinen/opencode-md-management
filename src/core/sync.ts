@@ -67,8 +67,8 @@ export async function createSyncPlan(root: string, config: AgentMdConfig): Promi
   return { canonical, manifest, targets, manifestPath };
 }
 
-export async function applySyncPlan(root: string, config: AgentMdConfig, plan: SyncPlan, options: { force?: boolean } = {}): Promise<AgentMdManifest> {
-  if (config.sync.requireGitClean)
+export async function applySyncPlan(root: string, config: AgentMdConfig, plan: SyncPlan, options: { force?: boolean; skipGitClean?: boolean } = {}): Promise<AgentMdManifest> {
+  if (config.sync.requireGitClean && !options.skipGitClean)
     await assertGitClean(root);
 
   const conflict = plan.targets.find((target) => target.status === "conflict");
