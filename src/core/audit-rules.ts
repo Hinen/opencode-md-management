@@ -23,6 +23,8 @@ export type AuditQualityReport = {
 export type AuditOptions = {
   maxSectionLines: number;
   forbidSecretsPatterns: boolean;
+  duplicateContentMinWords: number;
+  checkLocalLinks: boolean;
 };
 
 const vagueInstructionPattern = /\b(later|maybe|if needed|appropriate|as needed|나중에|적절히|필요시)\b/i;
@@ -32,6 +34,7 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
   const lines = content.split("\n");
   const findings: AuditFinding[] = [];
   const headings = new Map<string, number>();
+  const instructionLines = new Map<string, number>();
   let currentSectionStart = 1;
 
   const checkSectionLength = (lineNumber: number) => {
@@ -71,6 +74,15 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
       headings.set(title, lineNumber);
     }
 
+    if (heading && isOrphanedHeading(lines, index)) {
+      findings.push({
+        rule: "orphaned-heading",
+        severity: "warning",
+        message: "Heading has no content",
+        line: lineNumber
+      });
+    }
+
     if (vagueInstructionPattern.test(line)) {
       findings.push({
         rule: "vague-instruction",
@@ -87,6 +99,28 @@ export function auditMarkdown(content: string, options: AuditOptions): AuditFind
         message: "Line looks like it may contain a secret",
         line: lineNumber
       });
+    }
+
+    const duplicateKey = normalizeInstructionLine(line);
+
+    if (wordCount(duplicateKey) >= options.duplicateContentMinWords) {
+      const previousLine = instructionLines.get(duplicateKey);
+
+      if (previousLine !== undefined) {
+        findings.push({
+          rule: "duplicate-content",
+          severity: "warning",
+          message: `Similar instruction content also appears on line ${previousLine}`,
+          line: lineNumber
+        });
+      } else {
+        instructionLines.set(duplicateKey, lineNumber);
+      }
+    }
+
+    if (options.checkLocalLinks) {
+      for (const finding of auditLocalLinks(line, lineNumber))
+        findings.push(finding);
     }
   }
 
@@ -165,6 +199,12 @@ function scoreCurrency(findings: AuditFinding[]): AuditQualityCriterion {
   if (findings.some((finding) => finding.rule === "duplicate-heading"))
     score -= 7;
 
+  if (findings.some((finding) => finding.rule === "duplicate-content"))
+    score -= 5;
+
+  if (findings.some((finding) => finding.rule === "orphaned-heading"))
+    score -= 4;
+
   if (findings.some((finding) => finding.rule === "section-length"))
     score -= 8;
 
@@ -199,6 +239,82 @@ function criterion(name: string, score: number, maxScore: number, message: strin
 
 function countMatches(content: string, patterns: RegExp[]): number {
   return patterns.reduce((sum, pattern) => sum + (content.match(pattern) ?? []).length, 0);
+}
+
+function isOrphanedHeading(lines: string[], headingIndex: number): boolean {
+  const currentHeading = /^(#+)\s+/.exec(lines[headingIndex]);
+  const currentLevel = currentHeading?.[1].length ?? 0;
+
+  for (let index = headingIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+
+    if (line.length === 0)
+      continue;
+
+    const nextHeading = /^(#+)\s+/.exec(line);
+
+    if (!nextHeading)
+      return false;
+
+    if (nextHeading[1].length > currentLevel)
+      continue;
+
+    return true;
+  }
+
+  return true;
+}
+
+function normalizeInstructionLine(line: string): string {
+  return line
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/^\s*\d+[.)]\s+/, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function wordCount(value: string): number {
+  return value.split(/\s+/).filter(Boolean).length;
+}
+
+function auditLocalLinks(line: string, lineNumber: number): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const linkPattern = /\[[^\]]+\]\(([^)]+)\)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkPattern.exec(line)) !== null) {
+    const target = match[1].trim();
+
+    if (target.length === 0) {
+      findings.push({
+        rule: "invalid-local-link",
+        severity: "warning",
+        message: "Markdown link target is empty",
+        line: lineNumber
+      });
+      continue;
+    }
+
+    if (isExternalLink(target) || target.startsWith("#"))
+      continue;
+
+    if (target.startsWith("../") || target.includes("/../") || target.includes("\\..\\")) {
+      findings.push({
+        rule: "invalid-local-link",
+        severity: "warning",
+        message: "Local markdown link escapes the instruction file scope",
+        line: lineNumber
+      });
+    }
+  }
+
+  return findings;
+}
+
+function isExternalLink(target: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(target);
 }
 
 function gradeScore(score: number): AuditQualityReport["grade"] {

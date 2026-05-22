@@ -28,7 +28,9 @@ const configSchema = z.object({
   }).default({}),
   audit: z.object({
     maxSectionLines: z.number().int().positive().default(200),
-    forbidSecretsPatterns: z.boolean().default(true)
+    forbidSecretsPatterns: z.boolean().default(true),
+    duplicateContentMinWords: z.number().int().positive().default(12),
+    checkLocalLinks: z.boolean().default(true)
   }).default({}),
   llm: z.object({
     enabled: z.boolean().default(true),

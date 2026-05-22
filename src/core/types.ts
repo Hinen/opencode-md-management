@@ -29,6 +29,8 @@ export type AgentMdConfig = {
   audit: {
     maxSectionLines: number;
     forbidSecretsPatterns: boolean;
+    duplicateContentMinWords: number;
+    checkLocalLinks: boolean;
   };
   llm: {
     enabled: boolean;

@@ -9,6 +9,8 @@ describe("config and hash", () => {
     expect(config.targets[0]).toEqual({ path: "CLAUDE.md", mode: "mirror", enabled: true });
     expect(config.sync.requireGitClean).toBe(true);
     expect(config.audit.maxSectionLines).toBe(200);
+    expect(config.audit.duplicateContentMinWords).toBe(12);
+    expect(config.audit.checkLocalLinks).toBe(true);
   });
 
   it("upgrades legacy canonical configs to v2 shape in memory", () => {
