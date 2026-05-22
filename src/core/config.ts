@@ -6,7 +6,7 @@ import { assertManagedPath, assertUniqueManagedPaths } from "../util/fs.js";
 
 const targetSchema = z.object({
   path: z.string().min(1),
-  mode: z.literal("mirror").default("mirror"),
+  mode: z.enum(["mirror", "symlink"]).default("mirror"),
   enabled: z.boolean().default(true)
 });
 

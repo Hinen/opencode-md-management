@@ -34,4 +34,21 @@ describe("config and hash", () => {
   it("normalizes line endings before hashing", () => {
     expect(hashContent("a\nb\n")).toBe(hashContent("a\r\nb\r\n"));
   });
+
+  it("round-trips mode symlink unchanged", () => {
+    const config = parseConfig({ targets: [{ path: "CLAUDE.md", mode: "symlink" }] });
+
+    expect(config.targets[0].mode).toBe("symlink");
+  });
+
+  it("defaults missing mode to mirror for back-compat", () => {
+    const config = parseConfig({ targets: [{ path: "CLAUDE.md" }] });
+
+    expect(config.targets[0].mode).toBe("mirror");
+  });
+
+  it("rejects invalid mode values", () => {
+    expect(() => parseConfig({ targets: [{ path: "CLAUDE.md", mode: "local" }] })).toThrow();
+    expect(() => parseConfig({ targets: [{ path: "CLAUDE.md", mode: "link" }] })).toThrow();
+  });
 });

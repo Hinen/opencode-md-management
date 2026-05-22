@@ -5,10 +5,12 @@ import type { AgentMdManifest } from "./types.js";
 import { hashContent } from "./hash.js";
 import { assertParentChainInsideRoot, ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 
+// lastSyncedHash uses "symlink" sentinel for symlink-mode targets: symlinks have no
+// meaningful content hash, but keeping the field non-optional avoids downstream invariant breaks.
 const manifestTargetSchema = z.object({
   path: z.string().min(1),
-  mode: z.literal("mirror"),
-  lastSyncedHash: z.string().startsWith("sha256:")
+  mode: z.enum(["mirror", "symlink"]),
+  lastSyncedHash: z.union([z.string().startsWith("sha256:"), z.literal("symlink")])
 });
 
 const manifestV1Schema = z.object({
