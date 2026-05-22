@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { configFileName, loadConfig, parseConfig } from "../core/config.js";
+import type { AgentMdTarget } from "../core/types.js";
 import { canonicalByModel, type InitModel } from "./init.js";
 
 export type MirrorsCommandOptions = {
@@ -53,7 +54,7 @@ function modelPaths(models: InitModel[]): Set<string> {
   return new Set(models.map((model) => canonicalByModel[model]));
 }
 
-function setTargetEnabled(targetsByPath: Map<string, { path: string; mode: "mirror"; enabled: boolean }>, path: string, enabled: boolean, knownTargetPaths: Set<string>): boolean {
+function setTargetEnabled(targetsByPath: Map<string, AgentMdTarget>, path: string, enabled: boolean, knownTargetPaths: Set<string>): boolean {
   const target = targetsByPath.get(path);
 
   if (!target)

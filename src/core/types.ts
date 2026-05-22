@@ -1,4 +1,4 @@
-export type TargetMode = "mirror";
+export type TargetMode = "mirror" | "symlink";
 
 export type ScopeKind = "project" | "local" | "global" | "nested";
 

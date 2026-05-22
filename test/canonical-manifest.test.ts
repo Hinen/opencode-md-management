@@ -72,4 +72,46 @@ describe("canonical and manifest", () => {
 
     expect(JSON.parse(raw)).toEqual(manifest);
   });
+
+  it("accepts symlink sentinel as lastSyncedHash for symlink-mode targets", () => {
+    const manifest = parseManifest({
+      version: 2,
+      scope: { id: "project", kind: "project", tool: null },
+      root: ".",
+      configPath: ".agent-md.json",
+      configHash: hashContent("cfg"),
+      primary: { path: "AGENTS.md", hash: hashContent("content") },
+      targets: [{ path: "CLAUDE.md", mode: "symlink", lastSyncedHash: "symlink" }],
+      adoptedAt: new Date(0).toISOString()
+    });
+
+    expect(manifest.targets[0].lastSyncedHash).toBe("symlink");
+    expect(manifest.targets[0].mode).toBe("symlink");
+  });
+
+  it("rejects garbage lastSyncedHash values", () => {
+    expect(() => parseManifest({
+      version: 2,
+      scope: { id: "project", kind: "project", tool: null },
+      root: ".",
+      configPath: ".agent-md.json",
+      configHash: hashContent("cfg"),
+      primary: { path: "AGENTS.md", hash: hashContent("content") },
+      targets: [{ path: "CLAUDE.md", mode: "mirror", lastSyncedHash: "garbage" }],
+      adoptedAt: new Date(0).toISOString()
+    })).toThrow();
+  });
+
+  it("migrates v1 manifest to v2 with mode mirror and sha256 hash", () => {
+    const hash = hashContent("rules");
+    const manifest = parseManifest({
+      version: 1,
+      canonical: { path: "AGENTS.md", hash },
+      targets: [{ path: "CLAUDE.md", mode: "mirror", lastSyncedHash: hash }]
+    });
+
+    expect(manifest.version).toBe(2);
+    expect(manifest.targets[0].mode).toBe("mirror");
+    expect(manifest.targets[0].lastSyncedHash).toMatch(/^sha256:/);
+  });
 });
