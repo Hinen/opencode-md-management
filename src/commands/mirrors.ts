@@ -8,6 +8,7 @@ export type MirrorsCommandOptions = {
   enable?: InitModel[];
   disable?: InitModel[];
   scope?: string;
+  mode?: "mirror" | "symlink";
 };
 
 export async function runMirrors(root: string, options: MirrorsCommandOptions = {}): Promise<string> {
@@ -31,8 +32,18 @@ export async function runMirrors(root: string, options: MirrorsCommandOptions = 
 
   let changed = false;
 
-  for (const path of enablePaths)
+  for (const path of enablePaths) {
     changed = setTargetEnabled(targetsByPath, path, true, knownTargetPaths) || changed;
+
+    if (options.mode !== undefined) {
+      const target = targetsByPath.get(path)!;
+
+      if (target.mode !== options.mode) {
+        target.mode = options.mode;
+        changed = true;
+      }
+    }
+  }
 
   for (const path of disablePaths)
     changed = setTargetEnabled(targetsByPath, path, false, knownTargetPaths) || changed;

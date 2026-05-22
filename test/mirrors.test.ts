@@ -34,4 +34,58 @@ describe("runMirrors", () => {
     await expect(runMirrors(root, { enable: ["codex"] })).rejects.toThrow(/primary/);
     await expect(runMirrors(root, { enable: ["opencode"], scope: "local" })).rejects.toThrow(/project instruction files/);
   });
+
+  it("sets mode to symlink when enabling with mode symlink", async () => {
+    const root = await createTempRoot();
+
+    await runInit(root, { model: "codex" });
+    await runMirrors(root, { enable: ["claude"], mode: "symlink" });
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+    const claudeTarget = config.targets.find((target: { path: string }) => target.path === "CLAUDE.md");
+
+    expect(claudeTarget.enabled).toBe(true);
+    expect(claudeTarget.mode).toBe("symlink");
+  });
+
+  it("preserves explicit mirror mode when enabling with mode mirror", async () => {
+    const root = await createTempRoot();
+
+    await runInit(root, { model: "codex" });
+    await runMirrors(root, { enable: ["gemini"], mode: "mirror" });
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+    const geminiTarget = config.targets.find((target: { path: string }) => target.path === "GEMINI.md");
+
+    expect(geminiTarget.enabled).toBe(true);
+    expect(geminiTarget.mode).toBe("mirror");
+  });
+
+  it("does not change mode when disabling a target", async () => {
+    const root = await createTempRoot();
+
+    await runInit(root, { model: "codex" });
+    await runMirrors(root, { enable: ["claude"], mode: "symlink" });
+    await runMirrors(root, { disable: ["claude"] });
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+    const claudeTarget = config.targets.find((target: { path: string }) => target.path === "CLAUDE.md");
+
+    expect(claudeTarget.enabled).toBe(false);
+    expect(claudeTarget.mode).toBe("symlink");
+  });
+
+  it("flips mode back to mirror when re-enabling after symlink", async () => {
+    const root = await createTempRoot();
+
+    await runInit(root, { model: "codex" });
+    await runMirrors(root, { enable: ["claude"], mode: "symlink" });
+    await runMirrors(root, { enable: ["claude"], mode: "mirror" });
+
+    const config = JSON.parse(await readFile(join(root, ".agent-md.json"), "utf8"));
+    const claudeTarget = config.targets.find((target: { path: string }) => target.path === "CLAUDE.md");
+
+    expect(claudeTarget.enabled).toBe(true);
+    expect(claudeTarget.mode).toBe("mirror");
+  });
 });
