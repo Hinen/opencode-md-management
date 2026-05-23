@@ -1,9 +1,10 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { configFileName, localConfigFileName, parseConfig } from "../core/config.js";
 import { createManifest, manifestPathForScope, writeManifest } from "../core/manifest.js";
 import { hashContent } from "../core/hash.js";
 import { defaultPrimaryForScope, globalScopeRoot } from "../core/scope-context.js";
+import { discoverNestedPrimaries } from "../util/discover.js";
 import { ensureSymlink } from "../util/link.js";
 import { ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 import type { AgentMdConfig, AgentMdScopeIdentity, ScopeTool } from "../core/types.js";
@@ -67,7 +68,8 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
   await ensurePrimaryFile(root, primary);
 
   const lines = [`Created ${configFileName} with primary ${primary}`];
-  const linkOutcomes = await materializeAliases(root, primary, aliasPaths);
+  const aliasModels = options.aliases ?? [];
+  const linkOutcomes = await materializeAliases(root, primary, aliasPaths, aliasModels);
 
   lines.push(...linkOutcomes);
 
@@ -136,7 +138,7 @@ async function ensurePrimaryFile(root: string, primary: string): Promise<void> {
   await writeFile(absolutePath, primaryPlaceholder, { encoding: "utf8", flag: "wx" });
 }
 
-async function materializeAliases(root: string, primary: string, aliasPaths: string[]): Promise<string[]> {
+async function materializeAliases(root: string, primary: string, aliasPaths: string[], aliasModels: InitModel[]): Promise<string[]> {
   const lines: string[] = [];
 
   for (const aliasPath of aliasPaths) {
@@ -148,6 +150,48 @@ async function materializeAliases(root: string, primary: string, aliasPaths: str
     }
 
     lines.push(`Linked ${aliasPath} → ${primary}`);
+  }
+
+  const nestedLines = await materializeHierarchicalAliases(root, primary, aliasModels);
+
+  lines.push(...nestedLines);
+
+  return lines;
+}
+
+// Hierarchical alias materialization: for every nested file whose basename matches the
+// root primary's basename (e.g. nested CLAUDE.md beside the root CLAUDE.md), create
+// same-directory symlinks for the alias models whose canonical path is also a root-level
+// basename (claude/gemini/opencode). Codex and Copilot use sub-directory paths
+// (.codex/AGENTS.md, .github/copilot-instructions.md) that don't map to "next to a
+// nested primary"; they are intentionally skipped at nested levels.
+export async function materializeHierarchicalAliases(root: string, primary: string, aliasModels: InitModel[]): Promise<string[]> {
+  const lines: string[] = [];
+  const nestedPrimaries = await discoverNestedPrimaries(root, primary);
+
+  if (nestedPrimaries.length === 0)
+    return lines;
+
+  const sameDirAliasBasenames = aliasModels
+    .map((model) => canonicalByModel[model])
+    .filter((path) => !path.includes("/"))
+    .filter((path) => basename(path) !== basename(primary));
+
+  for (const nestedPrimary of nestedPrimaries) {
+    const nestedDir = dirname(nestedPrimary);
+    const nestedPrimaryBasename = basename(nestedPrimary);
+
+    for (const aliasBasename of sameDirAliasBasenames) {
+      const aliasPath = `${nestedDir}/${aliasBasename}`;
+      const outcome = await ensureSymlink(root, aliasPath, nestedPrimaryBasename);
+
+      if (outcome === "conflict-regular-file") {
+        lines.push(`Skipped ${aliasPath}: existing regular file`);
+        continue;
+      }
+
+      lines.push(`Linked ${aliasPath} → ${nestedPrimaryBasename}`);
+    }
   }
 
   return lines;

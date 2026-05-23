@@ -104,6 +104,12 @@ Each alias path is materialized as a same-directory relative symlink to the prim
 - `sync` exists only to detect and repair drift — e.g. a contributor deleted an alias or replaced it with a regular file. Run `sync` to preview, `sync --apply` to recreate the broken symlinks, and `sync --apply --force` to overwrite a regular file that has taken the alias path.
 - Approving a proposal writes the new content to the primary file and repairs any drifted aliases automatically.
 
+## Hierarchical aliases
+
+If your project has nested instruction files (e.g. `Foo/AGENTS.md` next to the root `AGENTS.md`), `omm init` and `omm aliases --add/--remove` automatically materialize same-directory aliases beside each nested file. Each nested file remains its own independent source — edits in `Foo/AGENTS.md` only propagate to `Foo/CLAUDE.md`, not to the root aliases.
+
+Only same-directory alias models are materialized at nested levels (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`). Cross-directory models (`.codex/AGENTS.md`, `.github/copilot-instructions.md`) are root-only by design.
+
 ## Platform notes
 
 - **Windows requires symlink support.** Enable Developer Mode (Settings → Privacy & security → For developers) once per machine. The tool fails loud with an actionable error if symlink creation is rejected — there is no automatic copy fallback.

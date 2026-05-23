@@ -1,6 +1,7 @@
 import { rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { configFileName, loadConfig, parseConfig } from "../core/config.js";
+import { discoverNestedPrimaries } from "../util/discover.js";
 import { ensureSymlink } from "../util/link.js";
 import { resolveInsideRoot } from "../util/fs.js";
 import { canonicalByModel, type InitModel } from "./init.js";
@@ -49,6 +50,10 @@ export async function runAliases(root: string, options: AliasesCommandOptions = 
     lines.push(`Removed alias ${path}`);
   }
 
+  const hierarchicalLines = await applyHierarchical(root, config.primary, options.add ?? [], options.remove ?? []);
+
+  lines.push(...hierarchicalLines);
+
   const nextConfig = parseConfig({
     ...config,
     aliases: [...aliasSet].sort((left, right) => left.localeCompare(right))
@@ -72,4 +77,50 @@ async function removeAlias(root: string, aliasPath: string): Promise<void> {
   const absolute = resolveInsideRoot(root, aliasPath);
 
   await rm(absolute, { force: true });
+}
+
+// Hierarchical add/remove for nested primaries (same logic as init.ts but operating on
+// the add/remove model lists rather than the full alias model set).
+async function applyHierarchical(root: string, primary: string, addModels: InitModel[], removeModels: InitModel[]): Promise<string[]> {
+  const lines: string[] = [];
+  const nestedPrimaries = await discoverNestedPrimaries(root, primary);
+
+  if (nestedPrimaries.length === 0)
+    return lines;
+
+  const addBasenames = sameDirAliasBasenames(addModels, primary);
+  const removeBasenames = sameDirAliasBasenames(removeModels, primary);
+
+  for (const nestedPrimary of nestedPrimaries) {
+    const nestedDir = dirname(nestedPrimary);
+    const nestedPrimaryBasename = basename(nestedPrimary);
+
+    for (const aliasBasename of addBasenames) {
+      const aliasPath = `${nestedDir}/${aliasBasename}`;
+      const outcome = await ensureSymlink(root, aliasPath, nestedPrimaryBasename);
+
+      if (outcome === "conflict-regular-file") {
+        lines.push(`Skipped ${aliasPath}: existing regular file`);
+        continue;
+      }
+
+      lines.push(`Linked ${aliasPath} → ${nestedPrimaryBasename}`);
+    }
+
+    for (const aliasBasename of removeBasenames) {
+      const aliasPath = `${nestedDir}/${aliasBasename}`;
+
+      await removeAlias(root, aliasPath);
+      lines.push(`Removed alias ${aliasPath}`);
+    }
+  }
+
+  return lines;
+}
+
+function sameDirAliasBasenames(models: InitModel[], primary: string): string[] {
+  return models
+    .map((model) => canonicalByModel[model])
+    .filter((path) => !path.includes("/"))
+    .filter((path) => basename(path) !== basename(primary));
 }
