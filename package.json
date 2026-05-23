@@ -1,6 +1,6 @@
 {
   "name": "opencode-md-management",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Manage AI instruction markdown files for OpenCode",
   "main": "./dist/plugin.js",
   "type": "module",
