@@ -110,4 +110,41 @@ describe("runAliases", () => {
 
     expect(config.aliases).toEqual([]);
   });
+
+  symlinkIt("hierarchically adds aliases beside nested primaries", async () => {
+    const root = await createTempRoot();
+    const { mkdir } = await import("node:fs/promises");
+
+    await runInit(root);
+    await mkdir(join(root, "Foo"), { recursive: true });
+    await writeFile(join(root, "Foo", "AGENTS.md"), "foo rules", "utf8");
+
+    const output = await runAliases(root, { add: ["claude"] });
+
+    expect(output).toContain("Linked CLAUDE.md → AGENTS.md");
+    expect(output).toContain("Linked Foo/CLAUDE.md → AGENTS.md");
+
+    const fooClaude = await lstat(join(root, "Foo", "CLAUDE.md"));
+
+    expect(fooClaude.isSymbolicLink()).toBe(true);
+  });
+
+  symlinkIt("hierarchically removes aliases beside nested primaries", async () => {
+    const root = await createTempRoot();
+    const { mkdir } = await import("node:fs/promises");
+
+    await runInit(root);
+    await mkdir(join(root, "Foo"), { recursive: true });
+    await writeFile(join(root, "Foo", "AGENTS.md"), "foo rules", "utf8");
+    await runAliases(root, { add: ["claude"] });
+
+    const output = await runAliases(root, { remove: ["claude"] });
+
+    expect(output).toContain("Removed alias CLAUDE.md");
+    expect(output).toContain("Removed alias Foo/CLAUDE.md");
+
+    const { access } = await import("node:fs/promises");
+
+    await expect(access(join(root, "Foo", "CLAUDE.md"))).rejects.toThrow();
+  });
 });

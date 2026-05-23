@@ -165,4 +165,45 @@ describe("runInit", () => {
         process.env.AGENT_MD_HOME = previousHome;
     }
   });
+
+  symlinkIt("materializes same-directory aliases for nested AGENTS.md files", async () => {
+    const root = await createTempRoot();
+    await writeFile(join(root, "AGENTS.md"), "root rules", "utf8");
+
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(join(root, "Foo"), { recursive: true });
+    await writeFile(join(root, "Foo", "AGENTS.md"), "foo rules", "utf8");
+    await mkdir(join(root, "Foo", "Bar"), { recursive: true });
+    await writeFile(join(root, "Foo", "Bar", "AGENTS.md"), "bar rules", "utf8");
+
+    const output = await runInit(root, { model: "opencode", aliases: ["claude", "gemini"] });
+
+    expect(output).toContain("Linked CLAUDE.md → AGENTS.md");
+    expect(output).toContain("Linked GEMINI.md → AGENTS.md");
+    expect(output).toContain("Linked Foo/CLAUDE.md → AGENTS.md");
+    expect(output).toContain("Linked Foo/GEMINI.md → AGENTS.md");
+    expect(output).toContain("Linked Foo/Bar/CLAUDE.md → AGENTS.md");
+    expect(output).toContain("Linked Foo/Bar/GEMINI.md → AGENTS.md");
+
+    const fooClaude = await lstat(join(root, "Foo", "CLAUDE.md"));
+
+    expect(fooClaude.isSymbolicLink()).toBe(true);
+  });
+
+  symlinkIt("skips cross-directory alias models (codex/copilot) at nested levels", async () => {
+    const root = await createTempRoot();
+    await writeFile(join(root, "AGENTS.md"), "root rules", "utf8");
+
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(join(root, "Foo"), { recursive: true });
+    await writeFile(join(root, "Foo", "AGENTS.md"), "foo rules", "utf8");
+
+    const output = await runInit(root, { model: "opencode", aliases: ["codex", "copilot"] });
+
+    expect(output).toContain("Linked .codex/AGENTS.md → AGENTS.md");
+    expect(output).toContain("Linked .github/copilot-instructions.md → AGENTS.md");
+    expect(output).not.toContain("Foo/.codex");
+    expect(output).not.toContain("Foo/.github");
+    expect(output).not.toContain("Foo/AGENTS.md → AGENTS.md");
+  });
 });
