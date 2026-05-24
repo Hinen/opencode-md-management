@@ -110,6 +110,25 @@ If your project has nested instruction files (e.g. `Foo/AGENTS.md` next to the r
 
 Only same-directory alias models are materialized at nested levels (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`). Cross-directory models (`.codex/AGENTS.md`, `.github/copilot-instructions.md`) are root-only by design.
 
+## Global cross-tool symlinks
+
+Global scopes (`~/.config/opencode/AGENTS.md`, `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`) can share a single instruction file across tools by symlinking other tool roots to one chosen primary:
+
+```bash
+omm init --scope global:opencode --model opencode --alias claude codex
+# Materializes:
+#   ~/.config/opencode/AGENTS.md  (primary placeholder)
+#   ~/.claude/CLAUDE.md           → /home/u/.config/opencode/AGENTS.md
+#   ~/.codex/AGENTS.md            → /home/u/.config/opencode/AGENTS.md
+
+omm aliases --scope global:opencode --add claude
+omm aliases --scope global:opencode --remove codex
+```
+
+Global aliases are stored as **absolute paths** in `~/.config/opencode/.agent-md.json` (machine-specific) and re-pointed via `readlink`. Safety: both the alias path and the canonical target must live under the trusted home root (`$AGENT_MD_HOME` if set, otherwise `os.homedir()`). Only `claude`, `opencode`, `codex` are valid global primary/alias models — `gemini` and `copilot` have no dedicated global location.
+
+Dotfile manager compatibility: if a regular file already lives at a target alias path (e.g. chezmoi-managed `~/.claude/CLAUDE.md`), `omm` refuses to overwrite and prints `Skipped …: existing regular file`. Resolve the conflict manually, then re-run the command.
+
 ## Platform notes
 
 - **Windows requires symlink support.** Enable Developer Mode (Settings → Privacy & security → For developers) once per machine. The tool fails loud with an actionable error if symlink creation is rejected — there is no automatic copy fallback.

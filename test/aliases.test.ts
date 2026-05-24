@@ -52,12 +52,12 @@ describe("runAliases", () => {
     expect((await lstat(join(root, "CLAUDE.md"))).isSymbolicLink()).toBe(true);
   });
 
-  it("rejects non-project scopes", async () => {
+  it("rejects unmanaged scopes", async () => {
     const root = await createTempRoot();
 
     await runInit(root);
 
-    await expect(runAliases(root, { add: ["claude"], scope: "global:claude" })).rejects.toThrow(/project instruction files/);
+    await expect(runAliases(root, { add: ["claude"], scope: "global:claude" })).rejects.toThrow(/not managed yet/);
   });
 
   it("rejects adding or removing the primary file path", async () => {
@@ -146,5 +146,38 @@ describe("runAliases", () => {
     const { access } = await import("node:fs/promises");
 
     await expect(access(join(root, "Foo", "CLAUDE.md"))).rejects.toThrow();
+  });
+
+  symlinkIt("adds and removes cross-tool aliases under a global scope", async () => {
+    const homeRoot = await createTempRoot();
+    const previousHome = process.env.AGENT_MD_HOME;
+
+    process.env.AGENT_MD_HOME = homeRoot;
+
+    try {
+      await runInit(homeRoot, { scope: "global:opencode", model: "opencode" });
+
+      const opencodeRoot = join(homeRoot, "opencode");
+      const claudeAlias = join(homeRoot, "claude", "CLAUDE.md");
+      const opencodePrimary = join(opencodeRoot, "AGENTS.md");
+      const addOutput = await runAliases(homeRoot, { scope: "global:opencode", add: ["claude"] });
+
+      expect(addOutput).toContain(`Linked ${claudeAlias} → ${opencodePrimary}`);
+
+      const { readlink, access } = await import("node:fs/promises");
+      const claudeTarget = (await readlink(claudeAlias)).replace(/\\/g, "/");
+
+      expect(claudeTarget).toBe(opencodePrimary.replace(/\\/g, "/"));
+
+      const removeOutput = await runAliases(homeRoot, { scope: "global:opencode", remove: ["claude"] });
+
+      expect(removeOutput).toContain(`Removed alias ${claudeAlias}`);
+      await expect(access(claudeAlias)).rejects.toThrow();
+    } finally {
+      if (previousHome === undefined)
+        delete process.env.AGENT_MD_HOME;
+      else
+        process.env.AGENT_MD_HOME = previousHome;
+    }
   });
 });
