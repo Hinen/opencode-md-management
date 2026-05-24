@@ -57,7 +57,11 @@ describe("runAliases", () => {
 
     await runInit(root);
 
-    await expect(runAliases(root, { add: ["claude"], scope: "global:claude" })).rejects.toThrow(/not managed yet/);
+    // Either the scope is detected but not yet managed (e.g. real ~/.claude with content
+    // on the developer's host), or the scope is not detected at all (CI Linux runner has
+    // no ~/.claude). Both errors are valid: the goal is that adding an alias under an
+    // uninitialized global scope refuses to proceed.
+    await expect(runAliases(root, { add: ["claude"], scope: "global:claude" })).rejects.toThrow(/(not managed yet|Unknown instruction file scope)/);
   });
 
   it("rejects adding or removing the primary file path", async () => {

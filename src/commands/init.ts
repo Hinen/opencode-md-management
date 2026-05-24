@@ -132,13 +132,20 @@ function resolveGlobalAliasAbsolutePaths(scope: AgentMdScopeIdentity, aliasModel
         return null;
 
       const aliasScopeRoot = globalScopeRoot(aliasScopeTool);
-      const aliasCanonical = canonicalByModel[model];
+      const aliasFilename = globalCanonicalForTool(aliasScopeTool);
 
-      return join(aliasScopeRoot, aliasCanonical);
+      return join(aliasScopeRoot, aliasFilename);
     })
     .filter((path): path is string => path !== null);
 
   return Array.from(new Set(paths)).sort((left, right) => left.localeCompare(right));
+}
+
+// Inside a tool's global scope root, the instruction file lives at a flat path
+// (CLAUDE.md for ~/.claude, AGENTS.md for ~/.codex and ~/.config/opencode). This
+// differs from canonicalByModel which is project-relative (e.g. ".codex/AGENTS.md").
+function globalCanonicalForTool(tool: "opencode" | "claude" | "codex"): string {
+  return tool === "claude" ? "CLAUDE.md" : "AGENTS.md";
 }
 
 async function materializeGlobalAliases(scopeRoot: string, primary: string, aliasAbsolutePaths: string[]): Promise<string[]> {
