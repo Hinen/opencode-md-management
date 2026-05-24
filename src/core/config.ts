@@ -45,10 +45,15 @@ export function parseConfig(input: unknown): AgentMdConfig {
   };
   const config = configSchema.parse(upgraded);
 
-  assertManagedPath(config.primary, { allowAgentMdInternal: false });
+  // Global scopes store aliases as absolute paths into the home subtree. Path safety
+  // for those is enforced at materialize time by ensureAbsoluteSymlink (home-root assertion).
+  // assertManagedPath rejects absolute paths and is therefore project/local-only.
+  if (config.scope.kind !== "global") {
+    assertManagedPath(config.primary, { allowAgentMdInternal: false });
 
-  for (const alias of config.aliases)
-    assertManagedPath(alias, { canonical: config.primary });
+    for (const alias of config.aliases)
+      assertManagedPath(alias, { canonical: config.primary });
+  }
 
   assertUniqueManagedPaths(config.aliases);
 

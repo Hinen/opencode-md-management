@@ -1,4 +1,6 @@
 import { lstat, readlink, rename, rm, symlink } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname as dirnameNative, isAbsolute, normalize, relative as relativeNative, resolve, sep } from "node:path";
 import { dirname, relative } from "node:path/posix";
 import { assertParentChainInsideRoot, ensureParentDirectory, resolveInsideRoot } from "./fs.js";
 
@@ -36,6 +38,61 @@ export async function ensureSymlink(root: string, linkPathRel: string, canonical
   await writeSymlink(target, linkPath, linkPathRel, Boolean(existing));
 
   return existing ? "replaced" : "created";
+}
+
+// Cross-scope absolute-path symlink for global scopes. Both link and target must live
+// under the home root (os.homedir(), or AGENT_MD_HOME when set for tests). Stores the
+// absolute target so that ~/.claude/CLAUDE.md → /home/u/.config/opencode/AGENTS.md is
+// machine-specific but readlink-inspectable.
+export async function ensureAbsoluteSymlink(linkPath: string, canonicalPath: string): Promise<EnsureLinkOutcome> {
+  const homeRoot = trustedHomeRoot();
+  const absoluteLink = resolve(linkPath);
+  const absoluteCanonical = resolve(canonicalPath);
+
+  assertUnderHome(absoluteLink, homeRoot, "link path");
+  assertUnderHome(absoluteCanonical, homeRoot, "canonical path");
+
+  await ensureParentDirectory(absoluteLink);
+
+  const existing = await lstat(absoluteLink).catch((error: unknown) => {
+    if (isNodeError(error, "ENOENT"))
+      return null;
+
+    throw error;
+  });
+
+  if (existing && !existing.isSymbolicLink())
+    return "conflict-regular-file";
+
+  if (existing) {
+    const currentTarget = (await readlink(absoluteLink)).replace(/\\/g, "/");
+    const expectedTarget = absoluteCanonical.replace(/\\/g, "/");
+
+    if (currentTarget === expectedTarget)
+      return "ok";
+  }
+
+  await writeSymlink(absoluteCanonical, absoluteLink, absoluteLink, Boolean(existing));
+
+  return existing ? "replaced" : "created";
+}
+
+function trustedHomeRoot(): string {
+  return resolve(process.env.AGENT_MD_HOME ?? homedir());
+}
+
+function assertUnderHome(absolutePath: string, homeRoot: string, label: string): void {
+  const rel = relativeNative(homeRoot, absolutePath);
+
+  if (rel.startsWith("..") || isAbsolute(rel) || rel === "" || rel.startsWith(`..${sep}`))
+    throw new Error(`Refusing cross-scope symlink: ${label} ${absolutePath} is outside the trusted home root ${homeRoot}.`);
+
+  if (normalize(rel).split(sep).includes(".."))
+    throw new Error(`Refusing cross-scope symlink: ${label} ${absolutePath} escapes the trusted home root ${homeRoot}.`);
+
+  // dirnameNative defends against passing the home root itself.
+  if (dirnameNative(absolutePath) === absolutePath)
+    throw new Error(`Refusing cross-scope symlink: ${label} ${absolutePath} resolves to a filesystem root.`);
 }
 
 async function writeSymlink(target: string, linkPath: string, linkPathRel: string, replaceExisting: boolean): Promise<void> {

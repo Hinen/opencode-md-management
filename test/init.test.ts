@@ -206,4 +206,43 @@ describe("runInit", () => {
     expect(output).not.toContain("Foo/.github");
     expect(output).not.toContain("Foo/AGENTS.md → AGENTS.md");
   });
+
+  symlinkIt("materializes cross-tool symlinks under a global scope", async () => {
+    const homeRoot = await createTempRoot();
+    const previousHome = process.env.AGENT_MD_HOME;
+
+    process.env.AGENT_MD_HOME = homeRoot;
+
+    try {
+      const output = await runInit(homeRoot, {
+        scope: "global:opencode",
+        model: "opencode",
+        aliases: ["claude", "codex"]
+      });
+
+      expect(output).toContain("Created global:opencode config with primary AGENTS.md");
+      expect(output).toContain("Linked");
+      expect(output).toContain("claude");
+      expect(output).toContain("codex");
+
+      const opencodeRoot = join(homeRoot, "opencode");
+      const claudeAlias = join(homeRoot, "claude", "CLAUDE.md");
+      const codexAlias = join(homeRoot, "codex", "AGENTS.md");
+      const opencodePrimary = await readFile(join(opencodeRoot, "AGENTS.md"), "utf8");
+
+      expect(opencodePrimary).toContain("Single source of truth");
+
+      const { readlink } = await import("node:fs/promises");
+      const claudeTarget = (await readlink(claudeAlias)).replace(/\\/g, "/");
+      const codexTarget = (await readlink(codexAlias)).replace(/\\/g, "/");
+
+      expect(claudeTarget).toBe(join(opencodeRoot, "AGENTS.md").replace(/\\/g, "/"));
+      expect(codexTarget).toBe(join(opencodeRoot, "AGENTS.md").replace(/\\/g, "/"));
+    } finally {
+      if (previousHome === undefined)
+        delete process.env.AGENT_MD_HOME;
+      else
+        process.env.AGENT_MD_HOME = previousHome;
+    }
+  });
 });

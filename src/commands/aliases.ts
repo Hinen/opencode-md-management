@@ -1,10 +1,12 @@
 import { rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { configFileName, loadConfig, parseConfig } from "../core/config.js";
+import { configFileName, localConfigFileName, parseConfig } from "../core/config.js";
+import { globalScopeRoot, requireWritableScope, type ScopeContext } from "../core/scope-context.js";
 import { discoverNestedPrimaries } from "../util/discover.js";
-import { ensureSymlink } from "../util/link.js";
+import { ensureAbsoluteSymlink, ensureSymlink } from "../util/link.js";
 import { resolveInsideRoot } from "../util/fs.js";
 import { canonicalByModel, type InitModel } from "./init.js";
+import type { AgentMdConfig } from "../core/types.js";
 
 export type AliasesCommandOptions = {
   add?: InitModel[];
@@ -13,10 +15,19 @@ export type AliasesCommandOptions = {
 };
 
 export async function runAliases(root: string, options: AliasesCommandOptions = {}): Promise<string> {
-  if (options.scope && options.scope !== "project")
-    throw new Error("Alias changes currently apply only to project instruction files. Omit --scope or use --scope project.");
+  const scope = await requireWritableScope(root, options.scope);
+  const config = scope.config!;
 
-  const config = await loadConfig(root);
+  if (scope.kind === "global")
+    return runGlobalAliases(scope, config, options);
+
+  if (scope.kind !== "project")
+    throw new Error("Alias changes currently apply only to project or global instruction files.");
+
+  return runProjectAliases(scope.root, config, options);
+}
+
+async function runProjectAliases(root: string, config: AgentMdConfig, options: AliasesCommandOptions): Promise<string> {
   const addPaths = modelPaths(options.add ?? []);
   const removePaths = modelPaths(options.remove ?? []);
 
@@ -69,8 +80,76 @@ export async function runAliases(root: string, options: AliasesCommandOptions = 
   return lines.join("\n");
 }
 
+async function runGlobalAliases(scope: ScopeContext, config: AgentMdConfig, options: AliasesCommandOptions): Promise<string> {
+  const primaryAbsolute = join(scope.root, config.primary);
+  const primaryTool = scope.tool;
+  const addAbsolutes = globalAliasAbsolutePaths(options.add ?? [], primaryTool);
+  const removeAbsolutes = globalAliasAbsolutePaths(options.remove ?? [], primaryTool);
+
+  if (addAbsolutes.includes(primaryAbsolute) || removeAbsolutes.includes(primaryAbsolute))
+    throw new Error(`Cannot alias the primary instruction file (${primaryAbsolute}). Choose a different model.`);
+
+  const aliasSet = new Set(config.aliases);
+  const lines: string[] = [];
+
+  for (const aliasAbsolute of addAbsolutes) {
+    if (aliasSet.has(aliasAbsolute))
+      continue;
+
+    const outcome = await ensureAbsoluteSymlink(aliasAbsolute, primaryAbsolute);
+
+    if (outcome === "conflict-regular-file") {
+      lines.push(`Skipped ${aliasAbsolute}: existing regular file (delete or move it, then retry)`);
+      continue;
+    }
+
+    aliasSet.add(aliasAbsolute);
+    lines.push(`Linked ${aliasAbsolute} → ${primaryAbsolute}`);
+  }
+
+  for (const aliasAbsolute of removeAbsolutes) {
+    if (!aliasSet.has(aliasAbsolute))
+      continue;
+
+    await rm(aliasAbsolute, { force: true });
+    aliasSet.delete(aliasAbsolute);
+    lines.push(`Removed alias ${aliasAbsolute}`);
+  }
+
+  const nextConfig = parseConfig({
+    ...config,
+    aliases: [...aliasSet].sort((left, right) => left.localeCompare(right))
+  });
+  const configPath = scope.configPath ?? join(scope.root, scope.id === "local" ? localConfigFileName : configFileName);
+
+  await writeFile(configPath, `${JSON.stringify(nextConfig, null, 2)}\n`, "utf8");
+
+  if (lines.length === 0)
+    lines.push("No changes");
+
+  lines.push(nextConfig.aliases.length === 0 ? "Active aliases: none" : `Active aliases: ${nextConfig.aliases.join(", ")}`);
+
+  return lines.join("\n");
+}
+
 function modelPaths(models: InitModel[]): Set<string> {
   return new Set(models.map((model) => canonicalByModel[model]));
+}
+
+function globalAliasAbsolutePaths(models: InitModel[], primaryTool: string | null): string[] {
+  return models
+    .filter((model) => model !== primaryTool)
+    .map((model) => {
+      // gemini/copilot have no dedicated global scope root; alias only to claude/codex/opencode primaries.
+      if (model === "gemini" || model === "copilot")
+        return null;
+
+      const aliasScopeRoot = globalScopeRoot(model);
+      const aliasCanonical = canonicalByModel[model];
+
+      return join(aliasScopeRoot, aliasCanonical);
+    })
+    .filter((path): path is string => path !== null);
 }
 
 async function removeAlias(root: string, aliasPath: string): Promise<void> {

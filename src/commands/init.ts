@@ -5,7 +5,7 @@ import { createManifest, manifestPathForScope, writeManifest } from "../core/man
 import { hashContent } from "../core/hash.js";
 import { defaultPrimaryForScope, globalScopeRoot } from "../core/scope-context.js";
 import { discoverNestedPrimaries } from "../util/discover.js";
-import { ensureSymlink } from "../util/link.js";
+import { ensureAbsoluteSymlink, ensureSymlink } from "../util/link.js";
 import { ensureParentDirectory, resolveInsideRoot } from "../util/fs.js";
 import type { AgentMdConfig, AgentMdScopeIdentity, ScopeTool } from "../core/types.js";
 
@@ -83,14 +83,18 @@ async function runScopedInit(root: string, options: InitCommandOptions): Promise
   const scopeRoot = scope.kind === "global" && scope.tool ? globalScopeRoot(scope.tool) : root;
   const configPath = join(scopeRoot, scope.id === "local" ? localConfigFileName : configFileName);
   const primary = options.model ? canonicalByModel[options.model] : defaultPrimaryForScope(scope.id);
+  const aliasModels = scope.kind === "global" ? (options.aliases ?? []) : [];
+  const aliasAbsolutePaths = resolveGlobalAliasAbsolutePaths(scope, aliasModels);
   const config = parseConfig({
     scope,
     primary,
-    aliases: [],
+    aliases: aliasAbsolutePaths,
     sync: { requireGitClean: scope.kind === "project" }
   });
 
   await mkdir(scopeRoot, { recursive: true });
+
+  await ensurePrimaryFile(scopeRoot, primary);
 
   try {
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { flag: "wx" });
@@ -101,9 +105,58 @@ async function runScopedInit(root: string, options: InitCommandOptions): Promise
     throw error;
   }
 
+  const lines = [`Created ${scope.id} config with primary ${primary}`];
+
+  if (scope.kind === "global") {
+    const aliasLines = await materializeGlobalAliases(scopeRoot, primary, aliasAbsolutePaths);
+
+    lines.push(...aliasLines);
+  }
+
   await writeInitialManifest(scopeRoot, configPath, config, options.adopt ?? false);
 
-  return `Created ${scope.id} config with primary ${primary}`;
+  return lines.join("\n");
+}
+
+function resolveGlobalAliasAbsolutePaths(scope: AgentMdScopeIdentity, aliasModels: InitModel[]): string[] {
+  if (scope.kind !== "global")
+    return [];
+
+  const primaryTool: InitModel | null = scope.tool === "claude" || scope.tool === "opencode" || scope.tool === "codex" || scope.tool === "gemini" || scope.tool === "copilot" ? scope.tool : null;
+  const paths = aliasModels
+    .filter((model) => model !== primaryTool)
+    .map((model) => {
+      const aliasScopeTool = model === "gemini" || model === "copilot" ? null : model;
+
+      if (!aliasScopeTool)
+        return null;
+
+      const aliasScopeRoot = globalScopeRoot(aliasScopeTool);
+      const aliasCanonical = canonicalByModel[model];
+
+      return join(aliasScopeRoot, aliasCanonical);
+    })
+    .filter((path): path is string => path !== null);
+
+  return Array.from(new Set(paths)).sort((left, right) => left.localeCompare(right));
+}
+
+async function materializeGlobalAliases(scopeRoot: string, primary: string, aliasAbsolutePaths: string[]): Promise<string[]> {
+  const lines: string[] = [];
+  const primaryAbsolute = join(scopeRoot, primary);
+
+  for (const aliasAbsolute of aliasAbsolutePaths) {
+    const outcome = await ensureAbsoluteSymlink(aliasAbsolute, primaryAbsolute);
+
+    if (outcome === "conflict-regular-file") {
+      lines.push(`Skipped ${aliasAbsolute}: existing regular file (delete or move it, then retry)`);
+      continue;
+    }
+
+    lines.push(`Linked ${aliasAbsolute} → ${primaryAbsolute}`);
+  }
+
+  return lines;
 }
 
 async function resolvePrimary(root: string, options: InitCommandOptions): Promise<string> {
