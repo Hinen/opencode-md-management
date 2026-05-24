@@ -145,9 +145,11 @@ function globalAliasAbsolutePaths(models: InitModel[], primaryTool: string | nul
         return null;
 
       const aliasScopeRoot = globalScopeRoot(model);
-      const aliasCanonical = canonicalByModel[model];
+      // Global instruction file inside a tool's root is flat (CLAUDE.md or AGENTS.md);
+      // canonicalByModel is project-relative and uses .codex/AGENTS.md which is wrong here.
+      const aliasFilename = model === "claude" ? "CLAUDE.md" : "AGENTS.md";
 
-      return join(aliasScopeRoot, aliasCanonical);
+      return join(aliasScopeRoot, aliasFilename);
     })
     .filter((path): path is string => path !== null);
 }
