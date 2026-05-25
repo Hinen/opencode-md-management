@@ -13,6 +13,17 @@ import { runReview } from "./commands/review.js";
 import { runSync } from "./commands/sync.js";
 import { ProposalNotFoundError } from "./core/proposals.js";
 import type { InitModel } from "./commands/init.js";
+import { isInteractive, promptChoice, promptMultiSelect } from "./util/prompt.js";
+
+const initModels: InitModel[] = ["opencode", "claude", "gemini", "codex", "copilot"];
+
+const modelLabels: Record<InitModel, string> = {
+  opencode: "OpenCode (AGENTS.md)",
+  claude: "Claude (CLAUDE.md)",
+  gemini: "Gemini (GEMINI.md)",
+  codex: "Codex (.codex/AGENTS.md)",
+  copilot: "GitHub Copilot (.github/copilot-instructions.md)"
+};
 
 export function createProgram(): Command {
   const program = new Command();
@@ -20,7 +31,8 @@ export function createProgram(): Command {
   program
     .name("opencode-md-management")
     .description("Manage AI instruction markdown files for OpenCode")
-    .version("0.1.0");
+    .version("0.3.0")
+    .addHelpText("after", "\nFirst time? Run `omm init` and follow the prompts.");
 
   program.command("init")
     .description("Create .agent-md.json, ensure the primary instruction file exists, and materialize symlink aliases")
@@ -28,13 +40,19 @@ export function createProgram(): Command {
     .option("--alias <model...>", "model whose file to create as a symlink alias to the primary (repeatable)")
     .option("--scope <scope>", "scope to initialize (project|local|global:claude|global:opencode|global:codex)")
     .option("--adopt", "adopt an existing primary file without rewriting it")
-    .action(async (options: { model?: string; alias?: string[]; scope?: string; adopt?: boolean }) => {
-      console.log(await runInit(process.cwd(), {
+    .option("--yes", "skip interactive prompts; use given options or sensible defaults")
+    .action(async (options: { model?: string; alias?: string[]; scope?: string; adopt?: boolean; yes?: boolean }) => {
+      const explicit: InitCommandInput = {
         model: parseInitModelOption(options.model),
         aliases: parseAliasModelsOption(options.alias),
         scope: options.scope,
         adopt: options.adopt
-      }));
+      };
+      const filled = options.yes || hasInitArgs(explicit) || !isInteractive()
+        ? explicit
+        : await runInteractiveInitPrompts(explicit);
+
+      console.log(await runInit(process.cwd(), filled));
     });
 
   program.command("doctor")
@@ -171,6 +189,35 @@ function parseIntegerOption(value: string): number {
     throw new Error(`Invalid number: ${value}`);
 
   return parsed;
+}
+
+type InitCommandInput = {
+  model?: InitModel;
+  aliases?: InitModel[];
+  scope?: string;
+  adopt?: boolean;
+};
+
+function hasInitArgs(input: InitCommandInput): boolean {
+  return input.model !== undefined || input.aliases !== undefined || input.scope !== undefined || input.adopt === true;
+}
+
+async function runInteractiveInitPrompts(base: InitCommandInput): Promise<InitCommandInput> {
+  console.log("Setting up opencode-md-management for this project.\n");
+
+  const model = await promptChoice<InitModel>(
+    "Which AI tool do you primarily use? (this file becomes your single source of truth)",
+    initModels.map((value) => ({ label: modelLabels[value], value }))
+  );
+  const aliasCandidates = initModels.filter((other) => other !== model);
+  const aliases = await promptMultiSelect<InitModel>(
+    "\nWhich other tools should share the same instructions? (symlink aliases)",
+    aliasCandidates.map((value) => ({ label: modelLabels[value], value }))
+  );
+
+  console.log("");
+
+  return { ...base, model, aliases };
 }
 
 function parseInitModelOption(value: string | undefined): InitModel | undefined {

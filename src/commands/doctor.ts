@@ -44,8 +44,17 @@ export async function runDoctor(root: string, options: DoctorCommandOptions = {}
 
     lines.push(`  manifest: ${plan.manifest ? "present" : "missing"}`, "  aliases:");
 
-    for (const alias of plan.aliases)
+    let driftCount = 0;
+
+    for (const alias of plan.aliases) {
       lines.push(`    ${alias.path} [${alias.status}]`);
+
+      if (alias.status !== "ok")
+        driftCount += 1;
+    }
+
+    if (driftCount > 0)
+      lines.push(`  fix: omm sync --apply${plan.aliases.some((a) => a.status === "conflict") ? " --force" : ""}`);
 
     if (scope.overridePath)
       lines.push(`  override: ${scope.overridePath} [read-only]`);

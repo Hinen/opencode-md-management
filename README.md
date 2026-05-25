@@ -2,6 +2,17 @@
 
 Manage AI instruction markdown files for OpenCode through a single primary file plus symlink aliases.
 
+## TL;DR
+
+```bash
+npx opencode-md-management init       # interactive: pick your main AI tool, pick aliases
+# edit the primary file (e.g. CLAUDE.md) — every other AI tool sees the same content
+```
+
+That's the whole loop. `omm doctor` later if something looks off.
+
+---
+
 `opencode-md-management` lets you maintain one primary instruction markdown file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.codex/AGENTS.md`, or `.github/copilot-instructions.md`) and expose it to other AI tools as same-directory symlink aliases. Edit the primary; every aliased tool sees the change instantly without a sync step. Changes go through a proposal-first review pipeline.
 
 ## What it does

@@ -114,7 +114,7 @@ async function createSymlink(target: string, path: string, linkPathRel: string):
     await symlink(target, path);
   } catch (error) {
     if (process.platform === "win32" && isNodeError(error, "EPERM"))
-      throw new Error(`Symlink creation failed at ${linkPathRel}: enable Windows Developer Mode or run as administrator. opencode-md-management requires symlink support. Underlying error: ${error.message}`);
+      throw new Error(`Symlink creation failed at ${linkPathRel}: enable Windows Developer Mode (Settings → Privacy & security → For developers → Developer Mode) or run as administrator. opencode-md-management requires symlink support. Underlying error: ${error.message}`);
 
     throw error;
   }
