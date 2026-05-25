@@ -48,6 +48,19 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
   if (options.scope && options.scope !== "project")
     return runScopedInit(root, options);
 
+  const configPath = join(root, configFileName);
+
+  if (await exists(configPath)) {
+    const current = JSON.parse(await readFile(configPath, "utf8")) as { primary?: string; aliases?: string[] };
+    const aliasList = current.aliases && current.aliases.length > 0 ? current.aliases.join(", ") : "none";
+
+    return [
+      `Already initialized. Current primary: ${current.primary ?? "(unknown)"}`,
+      `Active aliases: ${aliasList}`,
+      "Use 'omm aliases --add <model>' to add or 'omm aliases --remove <model>' to remove aliases."
+    ].join("\n");
+  }
+
   const primary = await resolvePrimary(root, options);
   const aliasPaths = resolveAliasPaths(options.aliases ?? [], primary);
   const config = parseConfig({
@@ -56,14 +69,7 @@ export async function runInit(root: string, options: InitCommandOptions = {}): P
     aliases: aliasPaths
   });
 
-  try {
-    await writeFile(join(root, configFileName), `${JSON.stringify(config, null, 2)}\n`, { flag: "wx" });
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST")
-      throw new Error(`${configFileName} already exists`);
-
-    throw error;
-  }
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { flag: "wx" });
 
   await ensurePrimaryFile(root, primary);
 

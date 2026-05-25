@@ -133,13 +133,17 @@ describe("runInit", () => {
     expect(output).toContain("Created .agent-md.json with primary CLAUDE.md");
   });
 
-  it("throws a friendly error when config exists", async () => {
+  it("returns a friendly idempotent message when config exists", async () => {
     const root = await createTempRoot();
 
     await writeFile(join(root, "AGENTS.md"), "# Rules\n", "utf8");
     await runInit(root);
 
-    await expect(runInit(root)).rejects.toThrow(/\.agent-md\.json already exists/);
+    const second = await runInit(root);
+
+    expect(second).toContain("Already initialized");
+    expect(second).toContain("Current primary: AGENTS.md");
+    expect(second).toContain("omm aliases --add");
   });
 
   it("initializes local scope separately from project config", async () => {
